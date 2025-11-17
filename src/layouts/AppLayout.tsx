@@ -24,7 +24,7 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({ children }: AppLayoutProps) {
-  const pathname = usePathname();
+  const pathname = usePathname() || "/";
   const { isOpen, toggle, close } = useSidebarToggle();
 
   return (
