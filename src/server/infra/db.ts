@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto';
+import { Pool } from 'pg';
 import {
   Activity,
   Client,
@@ -23,62 +23,116 @@ export type TableShape = {
 
 type TableName = keyof TableShape;
 
-type StoreMap = {
-  [K in TableName]: Map<string, TableShape[K]>;
-};
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+});
 
-const stores: StoreMap = {
-  clients: new Map(),
-  engagements: new Map(),
-  tasks: new Map(),
-  activities: new Map(),
-  documents: new Map(),
-  templates: new Map(),
-  externalAccounts: new Map(),
-  stageHistory: new Map(),
+const TABLE_MAPPING: Record<TableName, string> = {
+  clients: 'clients',
+  engagements: 'engagements',
+  tasks: 'tasks',
+  activities: 'activities',
+  documents: 'documents',
+  templates: 'templates',
+  externalAccounts: 'external_accounts',
+  stageHistory: 'stage_history',
 };
 
 export class TransactionContext {
-  constructor(private readonly map: StoreMap) {}
+  constructor(private readonly client: any) {}
 
-  list<K extends TableName>(table: K): TableShape[K][] {
-    return Array.from(this.map[table].values());
+  async list<K extends TableName>(table: K): Promise<TableShape[K][]> {
+    const sqlTable = TABLE_MAPPING[table];
+    const result = await this.client.query(`SELECT * FROM ${sqlTable}`);
+    return result.rows;
   }
 
-  find<K extends TableName>(table: K, id: string): TableShape[K] | undefined {
-    return this.map[table].get(id);
+  async find<K extends TableName>(table: K, id: string): Promise<TableShape[K] | undefined> {
+    const sqlTable = TABLE_MAPPING[table];
+    const result = await this.client.query(`SELECT * FROM ${sqlTable} WHERE id = $1`, [id]);
+    return result.rows[0];
   }
 
-  insert<K extends TableName>(table: K, record: TableShape[K]): TableShape[K] {
-    const id = (record as any).id ?? randomUUID();
-    const value = { ...record, id } as TableShape[K];
-    this.map[table].set(id, value);
-    return value;
+  async insert<K extends TableName>(table: K, record: Partial<TableShape[K]>): Promise<TableShape[K]> {
+    const sqlTable = TABLE_MAPPING[table];
+    const { id, ...rest } = record as any;
+    const keys = Object.keys(rest);
+    const values = Object.values(rest);
+    const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
+    
+    const query = `
+      INSERT INTO ${sqlTable} (${keys.join(', ')})
+      VALUES (${placeholders})
+      RETURNING *
+    `;
+    
+    const result = await this.client.query(query, values);
+    return result.rows[0];
   }
 
-  upsert<K extends TableName>(table: K, record: TableShape[K]): TableShape[K] {
-    this.map[table].set(record.id as string, record);
-    return record;
+  async upsert<K extends TableName>(table: K, record: TableShape[K]): Promise<TableShape[K]> {
+    const sqlTable = TABLE_MAPPING[table];
+    const { id, ...rest } = record as any;
+    const keys = Object.keys(rest);
+    const values = Object.values(rest);
+    
+    const setClause = keys.map((key, i) => `${key} = $${i + 2}`).join(', ');
+    const placeholders = values.map((_, i) => `$${i + 2}`).join(', ');
+    
+    const query = `
+      INSERT INTO ${sqlTable} (id, ${keys.join(', ')})
+      VALUES ($1, ${placeholders})
+      ON CONFLICT (id) DO UPDATE SET ${setClause}
+      RETURNING *
+    `;
+    
+    const result = await this.client.query(query, [id, ...values, ...values]);
+    return result.rows[0];
   }
 
-  update<K extends TableName>(table: K, id: string, patch: Partial<TableShape[K]>): TableShape[K] {
-    const existing = this.map[table].get(id);
-    if (!existing) throw new Error(`Record not found for table ${table}`);
-    const next = { ...existing, ...patch };
-    this.map[table].set(id, next as TableShape[K]);
-    return next as TableShape[K];
+  async update<K extends TableName>(table: K, id: string, patch: Partial<TableShape[K]>): Promise<TableShape[K]> {
+    const sqlTable = TABLE_MAPPING[table];
+    const keys = Object.keys(patch);
+    const values = Object.values(patch);
+    const setClause = keys.map((key, i) => `${key} = $${i + 2}`).join(', ');
+    
+    const query = `
+      UPDATE ${sqlTable}
+      SET ${setClause}
+      WHERE id = $1
+      RETURNING *
+    `;
+    
+    const result = await this.client.query(query, [id, ...values]);
+    if (result.rows.length === 0) {
+      throw new Error(`Record not found for table ${table}`);
+    }
+    return result.rows[0];
   }
 
-  delete<K extends TableName>(table: K, id: string): void {
-    this.map[table].delete(id);
+  async delete<K extends TableName>(table: K, id: string): Promise<void> {
+    const sqlTable = TABLE_MAPPING[table];
+    await this.client.query(`DELETE FROM ${sqlTable} WHERE id = $1`, [id]);
   }
 }
 
 export const db = {
   async withTransaction<T>(fn: (tx: TransactionContext) => Promise<T> | T): Promise<T> {
-    // For in-memory usage we do not clone per transaction; adequate for prototype.
-    return await fn(new TransactionContext(stores));
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const tx = new TransactionContext(client);
+      const result = await fn(tx);
+      await client.query('COMMIT');
+      return result;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   },
 };
 
-export const generateId = () => randomUUID();
+export const generateId = () => crypto.randomUUID();
