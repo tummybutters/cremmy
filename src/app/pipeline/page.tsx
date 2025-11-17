@@ -1,5 +1,7 @@
 import PipelineBoardPage from "@/pages/PipelineBoardPage";
 
-export default function Home() {
+export default function PipelinePage() {
   return <PipelineBoardPage />;
 }
+
+
