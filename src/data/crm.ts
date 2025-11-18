@@ -1,4 +1,6 @@
+import { integrationService } from "@/server/domain/integrationService";
 import { query, tableExists, tableHasColumn } from "@/data/db";
+
 import {
   ActivityItem,
   ClientLifecycle,
@@ -784,4 +786,37 @@ export async function fetchActivityFeed(limit = 15): Promise<ActivityItem[]> {
     occurredAt: formatRelativeTime(row.created_at),
     type: mapActivityType(row.type),
   }));
+}
+
+export interface ClientEmail {
+  id: string;
+  snippet?: string;
+  subject?: string;
+  from?: string;
+  date?: string;
+}
+
+export async function fetchClientEmails(clientId: string): Promise<ClientEmail[]> {
+  const client = await fetchClientDetail(clientId);
+  if (!client || !client.client.email) return [];
+  
+  // Hardcoded system account for now
+  const systemEmail = 'thomasbutcher@qortana.com';
+  
+  try {
+    const emails = await integrationService.fetchEmails(
+      systemEmail,
+      `from:${client.client.email} OR to:${client.client.email}`
+    );
+    return emails.map(e => ({
+        id: e.id!,
+        snippet: e.snippet ?? undefined,
+        subject: e.subject,
+        from: e.from,
+        date: e.date
+    }));
+  } catch (e) {
+    console.error('Failed to fetch emails', e);
+    return [];
+  }
 }

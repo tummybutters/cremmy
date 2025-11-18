@@ -28,10 +28,9 @@ export default async function PipelineBoardPage() {
             <Card
               key={stage.id}
               title={
-                <div className="flex items-center justify-between text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-white/80">
-                  <span>{stage.label}</span>
-                  <span className="text-white/60">{stage.count}</span>
-                </div>
+                <span className="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-white/80">
+                  {stage.label}
+                </span>
               }
               description="Live snapshot"
               className="flex flex-col"

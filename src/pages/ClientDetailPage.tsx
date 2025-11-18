@@ -1,5 +1,5 @@
 import { Card, PageHeader, StageBadge, StatusTag } from "@/components";
-import { fetchClientDetail } from "@/data/crm";
+import { fetchClientDetail, fetchClientEmails } from "@/data/crm";
 
 interface ClientDetailPageProps {
   clientId?: string;
@@ -7,6 +7,7 @@ interface ClientDetailPageProps {
 
 export default async function ClientDetailPage({ clientId }: ClientDetailPageProps) {
   const detail = clientId ? await fetchClientDetail(clientId) : null;
+  const emails = clientId ? await fetchClientEmails(clientId) : [];
 
   return (
     <section className="space-y-6">
@@ -90,6 +91,33 @@ export default async function ClientDetailPage({ clientId }: ClientDetailPagePro
                 </p>
               )}
             </Card>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+             <Card title="Emails (Gmail)">
+                {emails.length ? (
+                    <div className="space-y-4">
+                        {emails.map((email) => (
+                            <div key={email.id} className="border-b border-white/5 pb-3 last:border-0 last:pb-0">
+                                <div className="flex items-center justify-between text-xs text-slate-400">
+                                    <span>{email.from}</span>
+                                    <span>{email.date}</span>
+                                </div>
+                                <p className="mt-1 font-medium text-white text-sm">{email.subject}</p>
+                                <p className="mt-1 text-xs text-slate-400 line-clamp-2">{email.snippet}</p>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <p className="text-xs uppercase tracking-[0.2em] text-white/40">
+                        No recent emails found
+                    </p>
+                )}
+             </Card>
+             <Card title="Documents (Drive)">
+                <p className="text-xs uppercase tracking-[0.2em] text-white/40">
+                    No documents found
+                </p>
+             </Card>
           </div>
         </>
       ) : (
