@@ -1,117 +1,104 @@
 import { Card, PageHeader, StageBadge, StatusTag } from "@/components";
-import { ClientSummary, EngagementSummary, ActivityItem } from "@/types/ui";
+import { fetchClientDetail } from "@/data/crm";
 
 interface ClientDetailPageProps {
   clientId?: string;
 }
 
-const client: ClientSummary = {
-  id: "client-42",
-  name: "Harborwell Inc",
-  owner: "Jess",
-  status: "active",
-  stageId: "stage-3",
-  lastActivity: "Contract review",
-  value: "$68K",
-};
+export default async function ClientDetailPage({ clientId }: ClientDetailPageProps) {
+  const detail = clientId ? await fetchClientDetail(clientId) : null;
 
-const stage = { id: "stage-3", label: "Contract", color: "emerald", count: 1 };
-
-const engagements: EngagementSummary[] = [
-  {
-    id: "eng-1",
-    title: "Onboarding Implementation",
-    clientName: client.name,
-    status: "active",
-    updatedAt: "Updated yesterday",
-  },
-];
-
-const activities: ActivityItem[] = [
-  {
-    id: "act-1",
-    summary: "Shared final contract draft",
-    owner: "Jess",
-    occurredAt: "Today 09:20",
-    type: "email",
-  },
-  {
-    id: "act-2",
-    summary: "Coaching call recap",
-    owner: "Jess",
-    occurredAt: "Yesterday 16:00",
-    type: "meeting",
-  },
-];
-
-export default function ClientDetailPage({ clientId }: ClientDetailPageProps) {
   return (
     <section className="space-y-6">
       <PageHeader
-        title={client.name}
-        description={`Client detail shell for ${clientId ?? client.id}`}
+        title={detail?.client.name ?? "Client"}
+        description={detail ? `Owner ${detail.client.owner}` : "Select a client to view details."}
         actions={[{ label: "Edit Client" }, { label: "Log Activity", variant: "ghost" }]}
       />
       <p className="text-xs uppercase text-slate-400">
-        TODO: wire to backend
+        {detail ? "Live data from the workspace database." : "Select a record from the client list."}
       </p>
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card title="Overview" className="md:col-span-2">
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <p className="text-xs uppercase text-slate-400">Owner</p>
-              <p className="font-medium text-slate-900">{client.owner}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase text-slate-400">Stage</p>
-              <StageBadge stage={stage} />
-            </div>
-            <div>
-              <p className="text-xs uppercase text-slate-400">Status</p>
-              <StatusTag status={client.status} />
-            </div>
-            <div>
-              <p className="text-xs uppercase text-slate-400">Value</p>
-              <p className="font-semibold text-slate-900">{client.value}</p>
-            </div>
+      {detail ? (
+        <>
+          <div className="grid gap-4 md:grid-cols-3">
+            <Card title="Overview" className="md:col-span-2">
+              <div className="grid gap-4 text-sm sm:grid-cols-2">
+                <div>
+                  <p className="text-xs uppercase text-slate-400">Owner</p>
+                  <p className="font-semibold text-white">{detail.client.owner}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase text-slate-400">Stage</p>
+                  {detail.stage ? (
+                    <StageBadge stage={detail.stage} />
+                  ) : (
+                    <p className="text-xs text-slate-500">Unassigned</p>
+                  )}
+                </div>
+                <div>
+                  <p className="text-xs uppercase text-slate-400">Status</p>
+                  <StatusTag status={detail.client.lifecycle} />
+                </div>
+                <div>
+                  <p className="text-xs uppercase text-slate-400">Open Value</p>
+                  <p className="font-semibold text-white">{detail.valueLabel ?? "—"}</p>
+                </div>
+              </div>
+            </Card>
+            <Card title="Profile">
+              <ul className="space-y-3 text-sm text-slate-300">
+                <li>Email: {detail.client.email ?? "—"}</li>
+                <li>Phone: {detail.client.phone ?? "—"}</li>
+                <li>Company: {detail.client.company ?? "—"}</li>
+              </ul>
+            </Card>
           </div>
-        </Card>
-        <Card title="Profile">
-          <ul className="space-y-3 text-sm text-slate-600">
-            <li>Email: placeholder@example.com</li>
-            <li>Phone: (000) 000-0000</li>
-            <li>Industry: Placeholder</li>
-          </ul>
-        </Card>
-      </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card title="Engagements">
-          <ul className="space-y-3 text-sm">
-            {engagements.map((item) => (
-              <li key={item.id} className="rounded-lg border border-slate-100 p-3">
-                <p className="font-semibold text-slate-900">{item.title}</p>
-                <p className="text-xs text-slate-500">
-                  Status: {item.status} · {item.updatedAt}
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card title="Engagements">
+              {detail.engagements.length ? (
+                <ul className="space-y-3 text-sm text-slate-200">
+                  {detail.engagements.map((item) => (
+                    <li key={item.id} className="rounded-xl border border-white/10 bg-white/5 p-3">
+                      <p className="font-semibold text-white">{item.title}</p>
+                      <p className="text-xs text-slate-400">
+                        Status: {item.status} · {item.updatedAt}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs uppercase tracking-[0.2em] text-white/40">
+                  No engagements yet
                 </p>
-              </li>
-            ))}
-          </ul>
-        </Card>
-        <Card title="Recent Activity">
-          <ul className="space-y-3 text-sm">
-            {activities.map((activity) => (
-              <li key={activity.id}>
-                <p className="font-medium text-slate-900">{activity.summary}</p>
-                <p className="text-xs text-slate-500">
-                  {activity.type} · {activity.owner} · {activity.occurredAt}
+              )}
+            </Card>
+            <Card title="Recent Activity">
+              {detail.activities.length ? (
+                <ul className="space-y-3 text-sm text-slate-200">
+                  {detail.activities.map((activity) => (
+                    <li key={activity.id}>
+                      <p className="font-medium text-white">{activity.summary}</p>
+                      <p className="text-xs text-slate-400">
+                        {activity.type} · {activity.owner} · {activity.occurredAt}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs uppercase tracking-[0.2em] text-white/40">
+                  No activity yet
                 </p>
-              </li>
-            ))}
-          </ul>
+              )}
+            </Card>
+          </div>
+        </>
+      ) : (
+        <Card>
+          <p className="text-sm uppercase tracking-[0.2em] text-white/40">
+            Choose a client from the list to load their record.
+          </p>
         </Card>
-      </div>
+      )}
     </section>
   );
 }
-
-

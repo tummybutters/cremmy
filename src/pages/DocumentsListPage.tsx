@@ -1,31 +1,9 @@
 import { Card, PageHeader } from "@/components";
-import { DocumentSummary } from "@/types/ui";
+import { fetchDocuments } from "@/data/crm";
 
-const documents: DocumentSummary[] = [
-  {
-    id: "doc-1",
-    name: "Harborwell Contract",
-    owner: "Jess",
-    status: "draft",
-    updatedAt: "Today",
-  },
-  {
-    id: "doc-2",
-    name: "Summit Proposal",
-    owner: "Tom",
-    status: "review",
-    updatedAt: "Yesterday",
-  },
-  {
-    id: "doc-3",
-    name: "Northwind SOW",
-    owner: "Jess",
-    status: "final",
-    updatedAt: "Nov 05",
-  },
-];
+export default async function DocumentsListPage() {
+  const documents = await fetchDocuments();
 
-export default function DocumentsListPage() {
   return (
     <section className="space-y-6">
       <PageHeader
@@ -37,25 +15,52 @@ export default function DocumentsListPage() {
         TODO: wire to backend
       </p>
       <Card>
-        <div className="grid grid-cols-4 gap-4 border-b border-slate-100 pb-3 text-xs font-semibold uppercase text-slate-400">
+        <div className="hidden grid-cols-[minmax(0,2fr),repeat(3,minmax(0,1fr))] gap-4 border-b border-white/10 pb-3 text-[0.58rem] font-semibold uppercase tracking-[0.18em] text-slate-400 md:grid">
           <span>Name</span>
           <span>Owner</span>
           <span>Status</span>
           <span>Updated</span>
         </div>
-        <div className="divide-y divide-slate-100">
-          {documents.map((doc) => (
-            <div key={doc.id} className="grid grid-cols-4 gap-4 py-3 text-sm">
-              <span className="font-medium text-slate-900">{doc.name}</span>
-              <span className="text-slate-600">{doc.owner}</span>
-              <span className="text-slate-500 capitalize">{doc.status}</span>
-              <span className="text-slate-500">{doc.updatedAt}</span>
-            </div>
-          ))}
-        </div>
+        {documents.length ? (
+          <div className="divide-y divide-white/5">
+            {documents.map((doc) => (
+              <div
+                key={doc.id}
+                className="flex flex-col gap-4 py-4 text-sm text-slate-200 md:grid md:grid-cols-[minmax(0,2fr),repeat(3,minmax(0,1fr))] md:items-center md:gap-4"
+              >
+                <div>
+                  <p className="mb-1 text-[0.55rem] font-semibold uppercase tracking-[0.2em] text-slate-500 md:hidden">
+                    Name
+                  </p>
+                  <p className="font-semibold text-white">{doc.name}</p>
+                </div>
+                <div>
+                  <p className="mb-1 text-[0.55rem] font-semibold uppercase tracking-[0.2em] text-slate-500 md:hidden">
+                    Owner
+                  </p>
+                  <p className="text-slate-400">{doc.owner}</p>
+                </div>
+                <div>
+                  <p className="mb-1 text-[0.55rem] font-semibold uppercase tracking-[0.2em] text-slate-500 md:hidden">
+                    Status
+                  </p>
+                  <p className="capitalize text-slate-300">{doc.status}</p>
+                </div>
+                <div className="md:text-right">
+                  <p className="mb-1 text-[0.55rem] font-semibold uppercase tracking-[0.2em] text-slate-500 md:hidden">
+                    Updated
+                  </p>
+                  <p className="text-slate-400">{doc.updatedAt}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="py-6 text-center text-sm uppercase tracking-[0.2em] text-white/40">
+            No documents yet
+          </p>
+        )}
       </Card>
     </section>
   );
 }
-
-

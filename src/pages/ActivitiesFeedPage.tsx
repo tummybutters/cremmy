@@ -1,31 +1,9 @@
 import { Card, PageHeader } from "@/components";
-import { ActivityItem } from "@/types/ui";
+import { fetchActivityFeed } from "@/data/crm";
 
-const feed: ActivityItem[] = [
-  {
-    id: "act-1",
-    summary: "Jess logged a call with Harborwell",
-    owner: "Jess",
-    occurredAt: "Today 10:10",
-    type: "call",
-  },
-  {
-    id: "act-2",
-    summary: "Template sent to Northwind",
-    owner: "Jess",
-    occurredAt: "Yesterday 17:25",
-    type: "email",
-  },
-  {
-    id: "act-3",
-    summary: "Summit added to pipeline",
-    owner: "Jess",
-    occurredAt: "Yesterday 14:05",
-    type: "note",
-  },
-];
+export default async function ActivitiesFeedPage() {
+  const feed = await fetchActivityFeed();
 
-export default function ActivitiesFeedPage() {
   return (
     <section className="space-y-6">
       <PageHeader
@@ -37,19 +15,26 @@ export default function ActivitiesFeedPage() {
         TODO: wire to backend
       </p>
       <Card>
-        <ol className="space-y-4 text-sm">
-          {feed.map((item) => (
-            <li key={item.id} className="rounded-lg border border-slate-100 p-4">
-              <p className="font-medium text-slate-900">{item.summary}</p>
-              <p className="text-xs text-slate-500">
-                {item.type} · {item.owner} · {item.occurredAt}
-              </p>
-            </li>
-          ))}
-        </ol>
+        {feed.length ? (
+          <ol className="space-y-4 text-sm text-slate-200">
+            {feed.map((item) => (
+              <li
+                key={item.id}
+                className="rounded-xl border border-white/10 bg-white/5 p-4"
+              >
+                <p className="font-semibold text-white">{item.summary}</p>
+                <p className="text-[0.72rem] uppercase tracking-[0.18em] text-slate-400">
+                  {item.type} · {item.owner} · {item.occurredAt}
+                </p>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="py-6 text-center text-sm uppercase tracking-[0.2em] text-white/40">
+            No activity logged
+          </p>
+        )}
       </Card>
     </section>
   );
 }
-
-

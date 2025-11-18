@@ -1,5 +1,7 @@
 import EngagementDetailPage from "@/pages/EngagementDetailPage";
 
+export const dynamic = "force-dynamic";
+
 interface EngagementDetailRouteProps {
   params: { engagementId: string };
 }
@@ -9,5 +11,4 @@ export default function EngagementDetailRoute({
 }: EngagementDetailRouteProps) {
   return <EngagementDetailPage engagementId={params.engagementId} />;
 }
-
 

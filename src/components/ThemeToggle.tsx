@@ -9,7 +9,8 @@ export function ThemeToggle() {
 
   // Avoid hydration mismatch
   useEffect(() => {
-    setMounted(true);
+    const frame = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(frame);
   }, []);
 
   if (!mounted) {
@@ -73,4 +74,3 @@ export function ThemeToggle() {
     </button>
   );
 }
-

@@ -19,29 +19,33 @@ export function PageHeader({
   aside,
 }: PageHeaderProps) {
   return (
-    <div className="flex flex-col gap-4 border-b border-slate-100 dark:border-slate-800 pb-6 md:flex-row md:items-center md:justify-between">
+    <div className="surface-premium glow-outline flex flex-col gap-4 px-5 py-5 md:flex-row md:items-center md:justify-between">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">{title}</h1>
+        <p className="text-[0.55rem] font-semibold uppercase tracking-[0.25em] text-slate-400">
+          Overview
+        </p>
+        <h1 className="mt-1 text-[1.85rem] font-semibold text-white">{title}</h1>
         {description && (
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{description}</p>
+          <p className="mt-2 text-[0.9rem] text-slate-300">{description}</p>
         )}
       </div>
       {(actions?.length || aside) && (
-        <div className="flex items-center gap-3">
+        <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center md:w-auto md:justify-end">
           {actions?.map((action) => (
             <Button
               key={action.label}
               variant={action.variant}
               onClick={action.onClick}
+              size="sm"
+              block
+              className="w-full sm:w-auto"
             >
               {action.label}
             </Button>
           ))}
-          {aside}
+          {aside && <div className="w-full sm:w-auto">{aside}</div>}
         </div>
       )}
     </div>
   );
 }
-
-

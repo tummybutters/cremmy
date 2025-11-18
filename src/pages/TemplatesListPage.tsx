@@ -1,13 +1,9 @@
 import { Card, PageHeader, Button } from "@/components";
-import { TemplateSummary } from "@/types/ui";
+import { fetchTemplates } from "@/data/crm";
 
-const templates: TemplateSummary[] = [
-  { id: "tmp-1", name: "Introduction Email", category: "Email", updatedAt: "Nov 10" },
-  { id: "tmp-2", name: "Implementation Plan", category: "Document", updatedAt: "Nov 08" },
-  { id: "tmp-3", name: "Renewal Reminder", category: "Email", updatedAt: "Nov 05" },
-];
+export default async function TemplatesListPage() {
+  const templates = await fetchTemplates();
 
-export default function TemplatesListPage() {
   return (
     <section className="space-y-6">
       <PageHeader
@@ -19,27 +15,31 @@ export default function TemplatesListPage() {
         TODO: wire to backend
       </p>
       <Card>
-        <div className="divide-y divide-slate-100">
-          {templates.map((template) => (
-            <div
-              key={template.id}
-              className="flex flex-wrap items-center gap-3 py-4 text-sm"
-            >
-              <div className="flex-1">
-                <p className="font-semibold text-slate-900">{template.name}</p>
-                <p className="text-xs text-slate-500">
-                  {template.category} · Updated {template.updatedAt}
-                </p>
+        {templates.length ? (
+          <div className="divide-y divide-white/5">
+            {templates.map((template) => (
+              <div
+                key={template.id}
+                className="flex flex-col gap-3 py-4 text-sm text-slate-200 sm:flex-row sm:items-center"
+              >
+                <div className="flex-1">
+                  <p className="font-semibold text-white">{template.name}</p>
+                  <p className="text-xs text-slate-400">
+                    {template.category} · Updated {template.updatedAt}
+                  </p>
+                </div>
+                <Button variant="ghost" size="sm" block className="w-full sm:w-auto">
+                  Open
+                </Button>
               </div>
-              <Button variant="ghost" size="sm">
-                Open
-              </Button>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <p className="py-6 text-center text-sm uppercase tracking-[0.2em] text-white/40">
+            No templates yet
+          </p>
+        )}
       </Card>
     </section>
   );
 }
-
-

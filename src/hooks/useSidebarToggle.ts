@@ -1,19 +1,43 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
-export function useSidebarToggle(initialState = false) {
-  const [isOpen, setIsOpen] = useState(initialState);
+type Listener = () => void;
+
+let sidebarOpen = false;
+const listeners = new Set<Listener>();
+
+function setSidebarState(next: boolean | ((prev: boolean) => boolean)) {
+  const value = typeof next === "function" ? (next as (prev: boolean) => boolean)(sidebarOpen) : next;
+  if (value === sidebarOpen) return;
+  sidebarOpen = value;
+  listeners.forEach((listener) => listener());
+}
+
+function subscribe(listener: Listener) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+function getSnapshot() {
+  return sidebarOpen;
+}
+
+export function useSidebarToggle() {
+  const isOpen = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
   const toggle = useCallback(() => {
-    setIsOpen((prev) => !prev);
+    setSidebarState((prev) => !prev);
   }, []);
 
   const close = useCallback(() => {
-    setIsOpen(false);
+    setSidebarState(false);
   }, []);
 
-  return { isOpen, toggle, close };
-}
+  const open = useCallback(() => {
+    setSidebarState(true);
+  }, []);
 
+  return { isOpen, toggle, close, open };
+}
 

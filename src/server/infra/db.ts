@@ -1,4 +1,5 @@
 import { Pool } from 'pg';
+import type { PoolClient, QueryResultRow } from 'pg';
 import {
   Activity,
   Client,
@@ -23,6 +24,23 @@ export type TableShape = {
 
 type TableName = keyof TableShape;
 
+type DbRecord = Record<string, unknown>;
+
+type ClientRowInput = Partial<Client> & {
+  email?: string;
+  phone?: string;
+};
+
+type DbClientRow = Omit<Client, 'contact'> & {
+  email?: string;
+  phone?: string;
+};
+
+type DbStageHistoryRow = Omit<StageHistory, 'from' | 'to'> & {
+  from_stage: StageHistory['from'];
+  to_stage: StageHistory['to'];
+};
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
@@ -39,25 +57,21 @@ const TABLE_MAPPING: Record<TableName, string> = {
   stageHistory: 'stage_history',
 };
 
-function toDbClient(client: Partial<Client>): Record<string, any> {
-  const result: Record<string, any> = {};
-  
-  for (const key in client) {
-    if (key === 'contact') {
-      const contact = (client as any).contact;
-      if (contact) {
-        if (contact.email !== undefined) result.email = contact.email;
-        if (contact.phone !== undefined) result.phone = contact.phone;
-      }
-    } else {
-      result[key] = (client as any)[key];
-    }
+function toDbClient(client: ClientRowInput): DbRecord {
+  const { contact, email, phone, ...rest } = client;
+  const result: DbRecord = { ...rest };
+  const resolvedEmail = contact?.email ?? email;
+  if (resolvedEmail !== undefined) {
+    result.email = resolvedEmail;
   }
-  
+  const resolvedPhone = contact?.phone ?? phone;
+  if (resolvedPhone !== undefined) {
+    result.phone = resolvedPhone;
+  }
   return result;
 }
 
-function fromDbClient(row: any): Client {
+function fromDbClient(row: DbClientRow): Client {
   const { email, phone, ...rest } = row;
   return {
     ...rest,
@@ -65,23 +79,19 @@ function fromDbClient(row: any): Client {
   };
 }
 
-function toDbStageHistory(history: Partial<StageHistory>): Record<string, any> {
-  const result: Record<string, any> = {};
-  
-  for (const key in history) {
-    if (key === 'from') {
-      result.from_stage = (history as any).from;
-    } else if (key === 'to') {
-      result.to_stage = (history as any).to;
-    } else {
-      result[key] = (history as any)[key];
-    }
+function toDbStageHistory(history: Partial<StageHistory>): DbRecord {
+  const { from, to, ...rest } = history;
+  const result: DbRecord = { ...rest };
+  if (from !== undefined) {
+    result.from_stage = from;
   }
-  
+  if (to !== undefined) {
+    result.to_stage = to;
+  }
   return result;
 }
 
-function fromDbStageHistory(row: any): StageHistory {
+function fromDbStageHistory(row: DbStageHistoryRow): StageHistory {
   const { from_stage, to_stage, ...rest } = row;
   return {
     ...rest,
@@ -90,19 +100,33 @@ function fromDbStageHistory(row: any): StageHistory {
   };
 }
 
+function mapRowFromDb<K extends TableName>(table: K, row: QueryResultRow): TableShape[K] {
+  if (table === 'clients') {
+    return fromDbClient(row as DbClientRow) as TableShape[K];
+  }
+  if (table === 'stageHistory') {
+    return fromDbStageHistory(row as DbStageHistoryRow) as TableShape[K];
+  }
+  return row as TableShape[K];
+}
+
+function prepareRecordForDb<K extends TableName>(table: K, record: Partial<TableShape[K]>): DbRecord {
+  if (table === 'clients') {
+    return toDbClient(record as ClientRowInput);
+  }
+  if (table === 'stageHistory') {
+    return toDbStageHistory(record as Partial<StageHistory>);
+  }
+  return record as DbRecord;
+}
+
 export class TransactionContext {
-  constructor(private readonly client: any) {}
+  constructor(private readonly client: PoolClient) {}
 
   async list<K extends TableName>(table: K): Promise<TableShape[K][]> {
     const sqlTable = TABLE_MAPPING[table];
     const result = await this.client.query(`SELECT * FROM ${sqlTable}`);
-    
-    if (table === 'clients') {
-      return result.rows.map(fromDbClient) as TableShape[K][];
-    } else if (table === 'stageHistory') {
-      return result.rows.map(fromDbStageHistory) as TableShape[K][];
-    }
-    return result.rows;
+    return result.rows.map((row) => mapRowFromDb(table, row));
   }
 
   async find<K extends TableName>(table: K, id: string): Promise<TableShape[K] | undefined> {
@@ -111,24 +135,13 @@ export class TransactionContext {
     
     if (result.rows.length === 0) return undefined;
     
-    if (table === 'clients') {
-      return fromDbClient(result.rows[0]) as TableShape[K];
-    } else if (table === 'stageHistory') {
-      return fromDbStageHistory(result.rows[0]) as TableShape[K];
-    }
-    return result.rows[0];
+    return mapRowFromDb(table, result.rows[0]);
   }
 
   async insert<K extends TableName>(table: K, record: Partial<TableShape[K]>): Promise<TableShape[K]> {
     const sqlTable = TABLE_MAPPING[table];
     
-    let dbRecord = record as any;
-    if (table === 'clients') {
-      dbRecord = toDbClient(record as Client);
-    } else if (table === 'stageHistory') {
-      dbRecord = toDbStageHistory(record as StageHistory);
-    }
-    
+    const dbRecord = prepareRecordForDb(table, record);
     const keys = Object.keys(dbRecord).filter(k => dbRecord[k] !== undefined);
     const values = keys.map(k => dbRecord[k]);
     const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
@@ -141,23 +154,13 @@ export class TransactionContext {
     
     const result = await this.client.query(query, values);
     
-    if (table === 'clients') {
-      return fromDbClient(result.rows[0]) as TableShape[K];
-    } else if (table === 'stageHistory') {
-      return fromDbStageHistory(result.rows[0]) as TableShape[K];
-    }
-    return result.rows[0];
+    return mapRowFromDb(table, result.rows[0]);
   }
 
   async upsert<K extends TableName>(table: K, record: TableShape[K]): Promise<TableShape[K]> {
     const sqlTable = TABLE_MAPPING[table];
     
-    let dbRecord = record as any;
-    if (table === 'clients') {
-      dbRecord = toDbClient(record as Client);
-    } else if (table === 'stageHistory') {
-      dbRecord = toDbStageHistory(record as StageHistory);
-    }
+    const dbRecord = prepareRecordForDb(table, record);
     
     const { id, ...rest } = dbRecord;
     const keys = Object.keys(rest).filter(k => rest[k] !== undefined);
@@ -175,12 +178,7 @@ export class TransactionContext {
       if (result.rows.length === 0) {
         return this.find(table, id) as Promise<TableShape[K]>;
       }
-      if (table === 'clients') {
-        return fromDbClient(result.rows[0]) as TableShape[K];
-      } else if (table === 'stageHistory') {
-        return fromDbStageHistory(result.rows[0]) as TableShape[K];
-      }
-      return result.rows[0];
+      return mapRowFromDb(table, result.rows[0]);
     }
     
     const placeholders = values.map((_, i) => `$${i + 2}`).join(', ');
@@ -195,23 +193,13 @@ export class TransactionContext {
     
     const result = await this.client.query(query, [id, ...values]);
     
-    if (table === 'clients') {
-      return fromDbClient(result.rows[0]) as TableShape[K];
-    } else if (table === 'stageHistory') {
-      return fromDbStageHistory(result.rows[0]) as TableShape[K];
-    }
-    return result.rows[0];
+    return mapRowFromDb(table, result.rows[0]);
   }
 
   async update<K extends TableName>(table: K, id: string, patch: Partial<TableShape[K]>): Promise<TableShape[K]> {
     const sqlTable = TABLE_MAPPING[table];
     
-    let dbPatch = patch as any;
-    if (table === 'clients') {
-      dbPatch = toDbClient(patch as unknown as Partial<Client>);
-    } else if (table === 'stageHistory') {
-      dbPatch = toDbStageHistory(patch as unknown as Partial<StageHistory>);
-    }
+    const dbPatch = prepareRecordForDb(table, patch);
     
     const keys = Object.keys(dbPatch).filter(k => dbPatch[k] !== undefined);
     
@@ -236,12 +224,7 @@ export class TransactionContext {
       throw new Error(`Record not found for table ${table}`);
     }
     
-    if (table === 'clients') {
-      return fromDbClient(result.rows[0]) as TableShape[K];
-    } else if (table === 'stageHistory') {
-      return fromDbStageHistory(result.rows[0]) as TableShape[K];
-    }
-    return result.rows[0];
+    return mapRowFromDb(table, result.rows[0]);
   }
 
   async delete<K extends TableName>(table: K, id: string): Promise<void> {

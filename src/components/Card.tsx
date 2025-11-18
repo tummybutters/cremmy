@@ -17,29 +17,23 @@ export function Card({
   toolbar,
 }: CardProps) {
   return (
-    <section
-      className={classNames(
-        "rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm",
-        className,
-      )}
-    >
+    <section className={classNames("surface-premium glow-outline text-slate-200", className)}>
       {(title || description || toolbar) && (
-        <header className="flex items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 px-5 py-4">
+        <header className="relative z-10 flex items-center justify-between gap-3 border-b border-white/5 px-5 py-4">
           <div>
             {title && (
-              <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+              <h3 className="text-xs font-semibold uppercase tracking-[0.15em] text-white/80">
                 {title}
               </h3>
             )}
             {description && (
-              <p className="text-sm text-slate-500 dark:text-slate-400">{description}</p>
+              <p className="mt-1 text-[0.8rem] text-slate-300/80">{description}</p>
             )}
           </div>
           {toolbar}
         </header>
       )}
-      <div className="px-5 py-4">{children}</div>
+      <div className="relative z-10 px-5 py-4">{children}</div>
     </section>
   );
 }
-

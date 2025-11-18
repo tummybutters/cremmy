@@ -1,13 +1,16 @@
 import { PipelineStage, StageColor } from "@/types/ui";
 import { classNames } from "@/utils/classNames";
 
-const colorStyles: Record<StageColor, string> = {
-  slate: "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300",
-  blue: "bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-400",
-  amber: "bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-400",
-  emerald: "bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400",
-  rose: "bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-400",
-  purple: "bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-400",
+const colorStyles: Record<
+  StageColor,
+  { from: string; to: string; glow: string; text: string }
+> = {
+  slate: { from: "#6366f1", to: "#1e1b4b", glow: "rgba(99,102,241,0.45)", text: "#f8fafc" },
+  blue: { from: "#38bdf8", to: "#0f172a", glow: "rgba(14,165,233,0.45)", text: "#ecfeff" },
+  amber: { from: "#fbbf24", to: "#78350f", glow: "rgba(251,191,36,0.45)", text: "#fffbea" },
+  emerald: { from: "#34d399", to: "#064e3b", glow: "rgba(16,185,129,0.45)", text: "#ecfdf5" },
+  rose: { from: "#fb7185", to: "#881337", glow: "rgba(251,113,133,0.45)", text: "#fff1f2" },
+  purple: { from: "#c084fc", to: "#4c1d95", glow: "rgba(192,132,252,0.45)", text: "#faf5ff" },
 };
 
 interface StageBadgeProps {
@@ -15,16 +18,20 @@ interface StageBadgeProps {
 }
 
 export function StageBadge({ stage }: StageBadgeProps) {
+  const palette = colorStyles[stage.color];
+
   return (
     <span
       className={classNames(
-        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
-        colorStyles[stage.color],
+        "chip-premium text-[0.65rem] font-semibold uppercase tracking-[0.2em]",
       )}
+      style={{
+        background: `linear-gradient(120deg, ${palette.from}, ${palette.to})`,
+        color: palette.text,
+        boxShadow: `0 6px 18px rgba(0, 0, 0, 0.45), 0 0 18px ${palette.glow}`,
+      }}
     >
       {stage.label}
     </span>
   );
 }
-
-

@@ -1,22 +1,110 @@
-"use client";
-
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { ReactNode } from "react";
-import { Button } from "@/components/Button";
-import { ThemeToggle } from "@/components/ThemeToggle";
-import { useSidebarToggle } from "@/hooks/useSidebarToggle";
-import { classNames } from "@/utils/classNames";
+import { MobileHeader } from "@/layouts/components/MobileHeader";
+import { SidebarNav } from "@/layouts/components/SidebarNav";
+
+const iconProps = {
+  width: 20,
+  height: 20,
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.5,
+  strokeLinecap: "round",
+  strokeLinejoin: "round",
+} as const;
 
 const navItems = [
-  { label: "Pipeline", href: "/pipeline" },
-  { label: "Clients", href: "/clients" },
-  { label: "Tasks", href: "/tasks" },
-  { label: "Activities", href: "/activities" },
-  { label: "Templates", href: "/templates" },
-  { label: "Documents", href: "/documents" },
-  { label: "External Accounts", href: "/external-accounts" },
-  { label: "Settings", href: "/settings" },
+  {
+    label: "Pipeline",
+    href: "/pipeline",
+    icon: (
+      <svg {...iconProps}>
+        <path d="M4 17h6V7H4z" />
+        <path d="M14 17h6V4h-6z" />
+        <path d="M4 7 10 4 20 4" />
+      </svg>
+    ),
+  },
+  {
+    label: "Clients",
+    href: "/clients",
+    icon: (
+      <svg {...iconProps}>
+        <circle cx="9" cy="7" r="3" />
+        <path d="M2 21a7 7 0 0 1 14 0" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        <path d="M22 21a6 6 0 0 0-7-5.91" />
+      </svg>
+    ),
+  },
+  {
+    label: "Tasks",
+    href: "/tasks",
+    icon: (
+      <svg {...iconProps}>
+        <path d="m5 13 4 4L19 7" />
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+      </svg>
+    ),
+  },
+  {
+    label: "Activities",
+    href: "/activities",
+    icon: (
+      <svg {...iconProps}>
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h10" />
+        <path d="m16 3 5 5" />
+        <path d="M8 10h4" />
+        <path d="M8 14h2" />
+      </svg>
+    ),
+  },
+  {
+    label: "Templates",
+    href: "/templates",
+    icon: (
+      <svg {...iconProps}>
+        <rect x="4" y="4" width="16" height="16" rx="2" />
+        <path d="M8 4v16" />
+        <path d="M16 4v16" />
+        <path d="M4 10h4" />
+        <path d="M16 10h4" />
+      </svg>
+    ),
+  },
+  {
+    label: "Documents",
+    href: "/documents",
+    icon: (
+      <svg {...iconProps}>
+        <path d="M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
+        <path d="M13 3v6h6" />
+      </svg>
+    ),
+  },
+  {
+    label: "External Accounts",
+    href: "/external-accounts",
+    icon: (
+      <svg {...iconProps}>
+        <path d="M5 7h.01" />
+        <path d="M19 7h.01" />
+        <rect x="2" y="3" width="20" height="14" rx="2" />
+        <path d="M12 17v4" />
+        <path d="M8 21h8" />
+      </svg>
+    ),
+  },
+  {
+    label: "Settings",
+    href: "/settings",
+    icon: (
+      <svg {...iconProps}>
+        <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
+        <path d="M19.4 15a1.78 1.78 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.78 1.78 0 0 0-1.82-.33 1.78 1.78 0 0 0-1.06 1.64V21a2 2 0 0 1-4 0v-.09a1.78 1.78 0 0 0-1.06-1.64 1.78 1.78 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.78 1.78 0 0 0 .33-1.82 1.78 1.78 0 0 0-1.64-1.06H3a2 2 0 0 1 0-4h.09a1.78 1.78 0 0 0 1.64-1.06 1.78 1.78 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.78 1.78 0 0 0 1.82.33H9a1.78 1.78 0 0 0 1.06-1.64V3a2 2 0 0 1 4 0v.09a1.78 1.78 0 0 0 1.06 1.64 1.78 1.78 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.78 1.78 0 0 0-.33 1.82V9a1.78 1.78 0 0 0 1.64 1.06H21a2 2 0 0 1 0 4h-.09a1.78 1.78 0 0 0-1.64 1.06z" />
+      </svg>
+    ),
+  },
 ];
 
 interface AppLayoutProps {
@@ -24,87 +112,15 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({ children }: AppLayoutProps) {
-  const pathname = usePathname() || "/";
-  const { isOpen, toggle, close } = useSidebarToggle();
-
   return (
-    <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
-      {/* Sidebar */}
-      <aside
-        id="app-sidebar"
-        className={classNames(
-          "fixed inset-y-0 left-0 z-40 w-72 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-8 shadow-sm transition-transform duration-200 md:static md:translate-x-0",
-          isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
-        )}
-      >
-        <div className="flex items-center justify-between mb-6">
-          <Link href="/" className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-            Cremmy CRM
-          </Link>
-          <button
-            className="md:hidden text-sm text-slate-500 dark:text-slate-400"
-            onClick={close}
-            type="button"
-          >
-            Close
-          </button>
-        </div>
-        <div className="flex items-center justify-center pb-4 border-b border-slate-200 dark:border-slate-800">
-          <ThemeToggle />
-        </div>
-        <nav className="mt-6 space-y-1">
-          {navItems.map((item) => {
-            const isActive =
-              item.href === "/pipeline"
-                ? pathname === "/" || pathname.startsWith(item.href)
-                : pathname === item.href || pathname.startsWith(`${item.href}/`);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={classNames(
-                  "flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400"
-                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100",
-                )}
-                onClick={close}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
-        <div className="mt-auto pt-10 text-xs text-slate-400 dark:text-slate-500">
-          Single-user demo. TODO: wire to backend.
-        </div>
-      </aside>
-
-      {/* Content */}
+    <div className="flex min-h-screen bg-transparent text-white/90">
+      <SidebarNav navItems={navItems} />
       <div className="flex flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 px-5 py-4 backdrop-blur-md md:hidden">
-          <div>
-            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Cremmy CRM</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Pipeline workspace</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={toggle}
-              aria-expanded={isOpen}
-              aria-controls="app-sidebar"
-            >
-              Menu
-            </Button>
-          </div>
-        </header>
-        <main className="flex-1 px-5 py-8 md:px-10">
-          <div className="mx-auto w-full max-w-6xl space-y-8">{children}</div>
+        <MobileHeader />
+        <main className="flex-1 px-5 py-6 md:px-14">
+          <div className="mx-auto w-full max-w-5xl space-y-8">{children}</div>
         </main>
       </div>
     </div>
   );
 }
-

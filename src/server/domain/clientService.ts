@@ -14,6 +14,11 @@ interface ListFilters {
 
 const DEFAULT_LIMIT = 25;
 
+type ClientUpsertInput = Partial<Client> & {
+  email?: string;
+  phone?: string;
+};
+
 export const clientService = {
   async list(filters: ListFilters) {
     return db.withTransaction(async (tx) => {
@@ -49,15 +54,15 @@ export const clientService = {
     });
   },
 
-  async create(input: Partial<Client>, actor: string) {
+  async create(input: ClientUpsertInput, actor: string) {
     return db.withTransaction(async (tx) => {
       const now = generateTimestamp();
       const record: Client = {
         id: generateId(),
         name: input.name ?? 'Untitled Client',
         contact: {
-          email: input.contact?.email ?? (input as any).email,
-          phone: input.contact?.phone ?? (input as any).phone,
+          email: input.contact?.email ?? input.email,
+          phone: input.contact?.phone ?? input.phone,
         },
         company: input.company,
         lifecycle_stage: (input.lifecycle_stage as LifecycleStage) ?? 'prospect',
@@ -87,15 +92,15 @@ export const clientService = {
     });
   },
 
-  async update(id: string, patch: Partial<Client>, actor: string) {
+  async update(id: string, patch: ClientUpsertInput, actor: string) {
     return db.withTransaction(async (tx) => {
       const client = tx.find('clients', id);
       if (!client || client.archived_at) throw notFound('Client not found');
       const updated = tx.update('clients', id, {
         ...patch,
         contact: {
-          email: patch.contact?.email ?? (patch as any).email ?? client.contact.email,
-          phone: patch.contact?.phone ?? (patch as any).phone ?? client.contact.phone,
+          email: patch.contact?.email ?? patch.email ?? client.contact.email,
+          phone: patch.contact?.phone ?? patch.phone ?? client.contact.phone,
         },
         tags: patch.tags ?? client.tags,
         updated_at: generateTimestamp(),

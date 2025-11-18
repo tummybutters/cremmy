@@ -19,17 +19,16 @@ export function FormField({
   return (
     <div className={classNames("space-y-1.5", className)}>
       <div>
-        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+        <label className="block text-sm font-semibold text-white">
           {label}
         </label>
         {description && (
-          <p className="text-xs text-slate-500 dark:text-slate-400">{description}</p>
+          <p className="text-xs text-slate-400">{description}</p>
         )}
       </div>
       {children}
-      {hint && <p className="text-xs text-slate-400 dark:text-slate-500">{hint}</p>}
+      {hint && <p className="text-xs text-white/60">{hint}</p>}
     </div>
   );
 }
-
 

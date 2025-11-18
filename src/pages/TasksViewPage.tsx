@@ -1,33 +1,9 @@
 import { Card, PageHeader, Select } from "@/components";
-import { TaskSummary } from "@/types/ui";
+import { fetchTasks } from "@/data/crm";
 
-const tasks: TaskSummary[] = [
-  {
-    id: "task-1",
-    title: "Prep onboarding deck",
-    owner: "Jess",
-    dueDate: "Nov 14",
-    status: "open",
-    relatedTo: "Harborwell",
-  },
-  {
-    id: "task-2",
-    title: "Send renewal reminder",
-    owner: "Tom",
-    dueDate: "Nov 16",
-    status: "in-progress",
-    relatedTo: "Northwind",
-  },
-  {
-    id: "task-3",
-    title: "Archive closed opportunity",
-    owner: "Jess",
-    dueDate: "Nov 18",
-    status: "completed",
-  },
-];
+export default async function TasksViewPage() {
+  const tasks = await fetchTasks();
 
-export default function TasksViewPage() {
   return (
     <section className="space-y-6">
       <PageHeader
@@ -56,25 +32,32 @@ export default function TasksViewPage() {
         </div>
       </Card>
       <Card title="Task List">
-        <div className="divide-y divide-slate-100">
-          {tasks.map((task) => (
-            <div key={task.id} className="flex items-center gap-4 py-4 text-sm">
-              <div className="flex-1">
-                <p className="font-semibold text-slate-900">{task.title}</p>
-                <p className="text-xs text-slate-500">
-                  Due {task.dueDate} · Owner {task.owner}{" "}
-                  {task.relatedTo && `· Related: ${task.relatedTo}`}
-                </p>
+        {tasks.length ? (
+          <div className="divide-y divide-white/5">
+            {tasks.map((task) => (
+              <div
+                key={task.id}
+                className="flex flex-col gap-4 py-4 text-sm text-slate-200 md:flex-row md:items-center md:justify-between"
+              >
+                <div className="flex-1">
+                  <p className="font-semibold text-white">{task.title}</p>
+                  <p className="text-xs text-slate-400">
+                    Due {task.dueDate} · Owner {task.owner}
+                    {task.relatedTo && ` · Related: ${task.relatedTo}`}
+                  </p>
+                </div>
+                <span className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-white/70 md:text-right">
+                  {task.status}
+                </span>
               </div>
-              <span className="text-xs uppercase text-slate-500">
-                {task.status}
-              </span>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <p className="py-6 text-center text-sm uppercase tracking-[0.2em] text-white/40">
+            No tasks queued
+          </p>
+        )}
       </Card>
     </section>
   );
 }
-
-
