@@ -17,17 +17,22 @@ const DEFAULT_LIMIT = 25;
 type ClientUpsertInput = Partial<Client> & {
   email?: string;
   phone?: string;
+  description?: string;
+  payment_type?: 'monthly' | 'one_time';
+  recurring_amount?: number;
+  total_value?: number;
+  last_payment_date?: string;
 };
 
 export const clientService = {
   async list(filters: ListFilters) {
     return db.withTransaction(async (tx) => {
       const allClients = await tx.list('clients');
-      
+
       const cursorIdx = filters.cursor
         ? allClients
-            .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
-            .findIndex((c) => c.id === filters.cursor)
+          .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
+          .findIndex((c) => c.id === filters.cursor)
         : -1;
 
       const start = cursorIdx >= 0 ? cursorIdx + 1 : 0;
@@ -37,7 +42,7 @@ export const clientService = {
         .filter((client) =>
           filters.search
             ? client.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-              (client.company ?? '').toLowerCase().includes(filters.search.toLowerCase())
+            (client.company ?? '').toLowerCase().includes(filters.search.toLowerCase())
             : true
         )
         .filter((client) =>
@@ -69,6 +74,11 @@ export const clientService = {
         owner: input.owner,
         tags: input.tags ?? [],
         notes: input.notes,
+        description: input.description,
+        payment_type: input.payment_type,
+        recurring_amount: input.recurring_amount,
+        total_value: input.total_value,
+        last_payment_date: input.last_payment_date,
         created_at: now,
         updated_at: now,
       };

@@ -24,6 +24,13 @@ export interface ClientSummary {
   stageId: string;
   lastActivity: string;
   value?: string;
+  // New fields
+  company?: string;
+  description?: string;
+  payment_type?: 'monthly' | 'one_time';
+  recurring_amount?: number;
+  total_value?: number;
+  last_payment_date?: string;
 }
 
 export interface EngagementSummary {

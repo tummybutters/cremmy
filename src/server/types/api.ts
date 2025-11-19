@@ -15,6 +15,11 @@ export const createClientSchema = z.object({
   owner: z.string().optional(),
   tags: z.array(z.string()).optional(),
   notes: z.string().optional(),
+  description: z.string().optional(),
+  payment_type: z.enum(['monthly', 'one_time']).optional(),
+  recurring_amount: z.number().optional(),
+  total_value: z.number().optional(),
+  last_payment_date: z.string().datetime().optional(),
 });
 
 export const updateClientSchema = createClientSchema.partial();
@@ -69,7 +74,7 @@ export const manualActivitySchema = z.object({
   actor: z.string().default('user'),
   client_id: z.string().uuid().optional(),
   engagement_id: z.string().uuid().optional(),
-  payload: z.record(z.any()).default({}),
+  payload: z.record(z.string(), z.any()).default({}),
 });
 
 export const createDocumentSchema = z.object({
@@ -95,7 +100,7 @@ export const createExternalAccountSchema = z.object({
   provider: z.string().min(1),
   external_id: z.string().min(1),
   label: z.string().optional(),
-  metadata: z.record(z.any()).optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
   client_id: z.string().uuid().optional(),
 });
 

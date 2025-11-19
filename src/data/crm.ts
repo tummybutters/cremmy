@@ -314,6 +314,12 @@ export async function fetchClients(limit = 25): Promise<ClientSummary[]> {
     SELECT
       c.id,
       c.name,
+      c.company,
+      c.description,
+      c.payment_type,
+      c.recurring_amount,
+      c.total_value AS total_value_field,
+      c.last_payment_date,
       ${ownerExpr} AS owner,
       ${lifecycleExpr} AS lifecycle,
       c.updated_at,
@@ -341,6 +347,12 @@ export async function fetchClients(limit = 25): Promise<ClientSummary[]> {
   const { rows } = await query<{
     id: string;
     name: string;
+    company: string | null;
+    description: string | null;
+    payment_type: string | null;
+    recurring_amount: number | null;
+    total_value_field: number | null;
+    last_payment_date: string | null;
     owner: string | null;
     lifecycle: string | null;
     updated_at: string;
@@ -358,11 +370,17 @@ export async function fetchClients(limit = 25): Promise<ClientSummary[]> {
     return {
       id: row.id,
       name: row.name,
+      company: row.company ?? undefined,
       owner: formatOwner(row.owner),
       status: normalizeLifecycle(row.lifecycle),
       stageId: stageId ?? stageShape.stages[0]?.id ?? "lead",
       lastActivity: formatRelativeTime(row.last_activity_at),
       value: row.total_value ? formatCurrency(row.total_value) : undefined,
+      description: row.description ?? undefined,
+      payment_type: (row.payment_type as 'monthly' | 'one_time') ?? undefined,
+      recurring_amount: row.recurring_amount ?? undefined,
+      total_value: row.total_value_field ?? undefined,
+      last_payment_date: row.last_payment_date ?? undefined,
     };
   });
 }
@@ -433,7 +451,7 @@ export async function fetchClientDetail(clientId: string): Promise<ClientDetailD
 
   const activeStage = engagementRows[0]?.stage_ref
     ? stageShape.lookup[engagementRows[0].stage_ref] ??
-      stageShape.lookup[STAGE_CATEGORY_MAP[engagementRows[0].stage_ref] ?? ""]
+    stageShape.lookup[STAGE_CATEGORY_MAP[engagementRows[0].stage_ref] ?? ""]
     : undefined;
 
   const totalValue = engagementRows
@@ -639,7 +657,7 @@ export async function fetchDocuments(limit = 20): Promise<DocumentSummary[]> {
   const hasStatusPromise = tableHasColumn("documents", "status");
   const colsPromise = getClientColumns();
   const [hasStatus, cols] = await Promise.all([hasStatusPromise, colsPromise]);
-  
+
   const ownerField = cols.ownerColumn ? `c.${cols.ownerColumn}` : "c.name";
   const { rows } = await query<{
     id: string;

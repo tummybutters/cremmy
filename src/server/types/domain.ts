@@ -42,6 +42,12 @@ export interface Client {
   owner?: string;
   tags: string[];
   notes?: string;
+  // New fields for redesign
+  description?: string;
+  payment_type?: 'monthly' | 'one_time';
+  recurring_amount?: number;
+  total_value?: number;
+  last_payment_date?: string;
   archived_at?: string;
   created_at: string;
   updated_at: string;
