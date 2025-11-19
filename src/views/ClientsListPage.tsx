@@ -1,4 +1,4 @@
-import { PageHeader } from "@/components";
+import { ClientsHeader } from "./ClientsHeader";
 import { ClientCard } from "./ClientCard";
 import { fetchClients } from "@/data/crm";
 
@@ -7,11 +7,7 @@ export default async function ClientsListPage() {
 
   return (
     <section className="space-y-6">
-      <PageHeader
-        title="Clients"
-        description="Single-user roster of client accounts."
-        actions={[{ label: "Add Client" }, { label: "Import", variant: "ghost" }]}
-      />
+      <ClientsHeader />
       <div className="flex flex-wrap gap-2 text-[0.6rem] uppercase tracking-[0.2em] text-slate-400">
         {["All", "Prospects", "Active", "At risk"].map((filter) => (
           <button key={filter} className="chip-premium bg-white/5 text-white/70 hover:text-white">

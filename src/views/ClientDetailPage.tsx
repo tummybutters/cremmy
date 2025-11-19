@@ -1,4 +1,5 @@
 import { Card, PageHeader, StageBadge, StatusTag } from "@/components";
+import { ClientDetailHeader } from "./ClientDetailHeader";
 import { fetchClientDetail } from "@/data/crm";
 // import { fetchClientEmails } from "@/server/actions/email";
 
@@ -13,11 +14,14 @@ export default async function ClientDetailPage({ clientId }: ClientDetailPagePro
 
   return (
     <section className="space-y-6">
-      <PageHeader
-        title={detail?.client.name ?? "Client"}
-        description={detail ? `Owner ${detail.client.owner}` : "Select a client to view details."}
-        actions={[{ label: "Edit Client" }, { label: "Log Activity", variant: "ghost" }]}
-      />
+      {detail ? (
+        <ClientDetailHeader client={detail.client} />
+      ) : (
+        <PageHeader
+          title="Client"
+          description="Select a client to view details."
+        />
+      )}
       <p className="text-xs uppercase text-slate-400">
         {detail ? "Live data from the workspace database." : "Select a record from the client list."}
       </p>
@@ -95,31 +99,31 @@ export default async function ClientDetailPage({ clientId }: ClientDetailPagePro
             </Card>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
-             <Card title="Emails (Gmail)">
-                {emails.length ? (
-                    <div className="space-y-4">
-                        {emails.map((email) => (
-                            <div key={email.id} className="border-b border-white/5 pb-3 last:border-0 last:pb-0">
-                                <div className="flex items-center justify-between text-xs text-slate-400">
-                                    <span>{email.from}</span>
-                                    <span>{email.date}</span>
-                                </div>
-                                <p className="mt-1 font-medium text-white text-sm">{email.subject}</p>
-                                <p className="mt-1 text-xs text-slate-400 line-clamp-2">{email.snippet}</p>
-                            </div>
-                        ))}
+            <Card title="Emails (Gmail)">
+              {emails.length ? (
+                <div className="space-y-4">
+                  {emails.map((email) => (
+                    <div key={email.id} className="border-b border-white/5 pb-3 last:border-0 last:pb-0">
+                      <div className="flex items-center justify-between text-xs text-slate-400">
+                        <span>{email.from}</span>
+                        <span>{email.date}</span>
+                      </div>
+                      <p className="mt-1 font-medium text-white text-sm">{email.subject}</p>
+                      <p className="mt-1 text-xs text-slate-400 line-clamp-2">{email.snippet}</p>
                     </div>
-                ) : (
-                    <p className="text-xs uppercase tracking-[0.2em] text-white/40">
-                        No recent emails found
-                    </p>
-                )}
-             </Card>
-             <Card title="Documents (Drive)">
+                  ))}
+                </div>
+              ) : (
                 <p className="text-xs uppercase tracking-[0.2em] text-white/40">
-                    No documents found
+                  No recent emails found
                 </p>
-             </Card>
+              )}
+            </Card>
+            <Card title="Documents (Drive)">
+              <p className="text-xs uppercase tracking-[0.2em] text-white/40">
+                No documents found
+              </p>
+            </Card>
           </div>
         </>
       ) : (
