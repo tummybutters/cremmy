@@ -2,22 +2,30 @@ import { NextRequest, NextResponse } from "next/server";
 import * as client from "openid-client";
 import { getAuthConfig } from "@/server/auth/replitAuth";
 import { upsertUser } from "@/server/auth/storage";
-import type { UserSession } from "@/server/auth/replitAuth";
+import { getSession } from "@/server/auth/ironSession";
 
 export async function GET(req: NextRequest) {
   try {
-    const hostname = req.headers.get("host") || "";
-    const pkceVerifier = req.cookies.get("pkce_verifier")?.value;
+    const session = await getSession();
     
-    if (!pkceVerifier) {
+    const { pkceVerifier, state: expectedState, nonce: expectedNonce } = session;
+    
+    if (!pkceVerifier || !expectedState || !expectedNonce) {
       return NextResponse.redirect(new URL("/api/login", req.url));
     }
     
     const config = await getAuthConfig();
     const callbackUrl = new URL(req.url);
     
+    const receivedState = callbackUrl.searchParams.get("state");
+    if (receivedState !== expectedState) {
+      console.error("State mismatch - potential CSRF attack");
+      return NextResponse.redirect(new URL("/api/login", req.url));
+    }
+    
     const tokens = await client.authorizationCodeGrant(config, callbackUrl, {
       pkceCodeVerifier: pkceVerifier,
+      expectedNonce: expectedNonce,
       idTokenExpected: true,
     });
     
@@ -35,33 +43,18 @@ export async function GET(req: NextRequest) {
       profileImageUrl: (claims.profile_image_url as string) ?? null,
     });
     
-    const userSession: UserSession = {
-      claims: {
-        sub: claims.sub as string,
-        email: claims.email as string,
-        first_name: claims.first_name as string,
-        last_name: claims.last_name as string,
-        profile_image_url: claims.profile_image_url as string,
-        exp: claims.exp as number,
-      },
-      access_token: tokens.access_token,
-      refresh_token: tokens.refresh_token,
-      expires_at: claims.exp as number,
-    };
+    session.userId = claims.sub as string;
+    session.accessToken = tokens.access_token;
+    session.refreshToken = tokens.refresh_token;
+    session.expiresAt = (claims.exp as number) ?? undefined;
     
-    const response = NextResponse.redirect(new URL("/", req.url));
+    delete session.pkceVerifier;
+    delete session.state;
+    delete session.nonce;
     
-    response.cookies.set("user_session", JSON.stringify(userSession), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60,
-      path: "/",
-    });
+    await session.save();
     
-    response.cookies.delete("pkce_verifier");
-    
-    return response;
+    return NextResponse.redirect(new URL("/", req.url));
   } catch (error) {
     console.error("Callback error:", error);
     return NextResponse.redirect(new URL("/api/login", req.url));

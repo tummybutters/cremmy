@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as client from "openid-client";
 import { getAuthConfig } from "@/server/auth/replitAuth";
+import { getSession } from "@/server/auth/ironSession";
 
 export async function GET(req: NextRequest) {
   try {
@@ -10,6 +11,14 @@ export async function GET(req: NextRequest) {
     
     const codeVerifier = client.randomPKCECodeVerifier();
     const codeChallenge = await client.calculatePKCECodeChallenge(codeVerifier);
+    const state = client.randomState();
+    const nonce = client.randomNonce();
+    
+    const session = await getSession();
+    session.pkceVerifier = codeVerifier;
+    session.state = state;
+    session.nonce = nonce;
+    await session.save();
     
     const authorizationUrl = client.buildAuthorizationUrl(config, {
       client_id: replId,
@@ -17,19 +26,11 @@ export async function GET(req: NextRequest) {
       scope: "openid email profile offline_access",
       code_challenge: codeChallenge,
       code_challenge_method: "S256",
+      state,
+      nonce,
     });
     
-    const response = NextResponse.redirect(authorizationUrl);
-    
-    response.cookies.set("pkce_verifier", codeVerifier, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 600,
-      path: "/",
-    });
-    
-    return response;
+    return NextResponse.redirect(authorizationUrl);
   } catch (error) {
     console.error("Login error:", error);
     return NextResponse.json(

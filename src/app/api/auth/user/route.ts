@@ -1,23 +1,21 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getUser } from "@/server/auth/storage";
-import type { UserSession } from "@/server/auth/replitAuth";
+import { getSession } from "@/server/auth/ironSession";
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
-    const sessionCookie = req.cookies.get("user_session")?.value;
+    const session = await getSession();
     
-    if (!sessionCookie) {
+    if (!session.userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    
-    const session: UserSession = JSON.parse(sessionCookie);
     
     const now = Math.floor(Date.now() / 1000);
-    if (session.expires_at && now > session.expires_at) {
+    if (session.expiresAt && now > session.expiresAt) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     
-    const user = await getUser(session.claims.sub);
+    const user = await getUser(session.userId);
     
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
