@@ -705,6 +705,11 @@ export async function fetchTemplates(limit = 20): Promise<TemplateSummary[]> {
 }
 
 export async function fetchExternalAccounts(limit = 20): Promise<ExternalAccountSummary[]> {
+  // Bail out cleanly if the table is missing in the workspace database.
+  if (!(await tableExists("external_accounts"))) {
+    return [];
+  }
+
   const hasAccountName = await tableHasColumn("external_accounts", "account_name");
   const hasAccountIdentifier = await tableHasColumn("external_accounts", "account_identifier");
   const hasStatus = await tableHasColumn("external_accounts", "status");
@@ -797,4 +802,3 @@ export interface ClientEmail {
   from?: string;
   date?: string;
 }
-

@@ -1,5 +1,4 @@
 import { Pool, type QueryResult, type QueryResultRow } from "pg";
-import { unstable_cache } from "next/cache";
 
 declare global {
   var __crm_pg_pool__: Pool | undefined;
@@ -34,39 +33,46 @@ export async function query<T extends QueryResultRow = any>(
   return pool.query<T>(text, params);
 }
 
-export const tableHasColumn = unstable_cache(
-  async (table: string, column: string) => {
-    const { rows } = await query<{ exists: boolean }>(
-      `
-        SELECT EXISTS (
-          SELECT 1
-          FROM information_schema.columns
-          WHERE table_name = $1
-            AND column_name = $2
-        ) AS exists
-      `,
-      [table, column],
-    );
-    return Boolean(rows[0]?.exists);
-  },
-  ["table-has-column"],
-  { revalidate: 86400 }
-);
+// Simple in-memory caches keyed by table/column to avoid repeated metadata lookups.
+const columnCheckCache = new Map<string, Promise<boolean>>();
+const tableCheckCache = new Map<string, Promise<boolean>>();
 
-export const tableExists = unstable_cache(
-  async (table: string) => {
-    const { rows } = await query<{ exists: boolean }>(
-      `
-        SELECT EXISTS (
-          SELECT 1
-          FROM information_schema.tables
-          WHERE table_name = $1
-        ) AS exists
-      `,
-      [table],
-    );
-    return Boolean(rows[0]?.exists);
-  },
-  ["table-exists"],
-  { revalidate: 86400 }
-);
+export async function tableHasColumn(table: string, column: string) {
+  const key = `${table}:${column}`;
+  const cached = columnCheckCache.get(key);
+  if (cached) return cached;
+
+  const checkPromise = query<{ exists: boolean }>(
+    `
+      SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_name = $1
+          AND column_name = $2
+      ) AS exists
+    `,
+    [table, column],
+  ).then((result) => Boolean(result.rows[0]?.exists));
+
+  columnCheckCache.set(key, checkPromise);
+  return checkPromise;
+}
+
+export async function tableExists(table: string) {
+  const cached = tableCheckCache.get(table);
+  if (cached) return cached;
+
+  const checkPromise = query<{ exists: boolean }>(
+    `
+      SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_name = $1
+      ) AS exists
+    `,
+    [table],
+  ).then((result) => Boolean(result.rows[0]?.exists));
+
+  tableCheckCache.set(table, checkPromise);
+  return checkPromise;
+}
