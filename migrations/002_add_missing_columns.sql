@@ -64,6 +64,17 @@ BEGIN
   END IF;
 END $$;
 
+-- Add title column to activities if it doesn't exist
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'activities' AND column_name = 'title'
+  ) THEN
+    ALTER TABLE activities ADD COLUMN title TEXT NOT NULL DEFAULT 'Activity';
+  END IF;
+END $$;
+
 -- Add type column to templates if it doesn't exist
 DO $$ 
 BEGIN
