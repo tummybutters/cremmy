@@ -315,11 +315,6 @@ export async function fetchClients(limit = 25): Promise<ClientSummary[]> {
       c.id,
       c.name,
       c.company,
-      c.description,
-      c.payment_type,
-      c.recurring_amount,
-      c.total_value AS total_value_field,
-      c.last_payment_date,
       ${ownerExpr} AS owner,
       ${lifecycleExpr} AS lifecycle,
       c.updated_at,
@@ -348,11 +343,6 @@ export async function fetchClients(limit = 25): Promise<ClientSummary[]> {
     id: string;
     name: string;
     company: string | null;
-    description: string | null;
-    payment_type: string | null;
-    recurring_amount: number | null;
-    total_value_field: number | null;
-    last_payment_date: string | null;
     owner: string | null;
     lifecycle: string | null;
     updated_at: string;
@@ -376,11 +366,6 @@ export async function fetchClients(limit = 25): Promise<ClientSummary[]> {
       stageId: stageId ?? stageShape.stages[0]?.id ?? "lead",
       lastActivity: formatRelativeTime(row.last_activity_at),
       value: row.total_value ? formatCurrency(row.total_value) : undefined,
-      description: row.description ?? undefined,
-      payment_type: (row.payment_type as 'monthly' | 'one_time') ?? undefined,
-      recurring_amount: row.recurring_amount ?? undefined,
-      total_value: row.total_value_field ?? undefined,
-      last_payment_date: row.last_payment_date ?? undefined,
     };
   });
 }
