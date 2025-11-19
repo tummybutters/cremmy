@@ -1,4 +1,4 @@
-import ActivitiesFeedPage from "@/pages/ActivitiesFeedPage";
+import ActivitiesFeedPage from "@/views/ActivitiesFeedPage";
 
 export const dynamic = "force-dynamic";
 

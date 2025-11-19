@@ -1,5 +1,5 @@
-import { integrationService } from "@/server/domain/integrationService";
 import { query, tableExists, tableHasColumn } from "@/data/db";
+import { unstable_cache } from "next/cache";
 
 import {
   ActivityItem,
@@ -71,85 +71,81 @@ const STAGE_CATEGORY_MAP: Record<string, string> = {
 
 const FALLBACK_OWNER = "Workspace";
 
-let clientColumns: ClientColumnConfig | null = null;
-let stageShapeCache: StageShape | null = null;
-let taskDueColumn: "due_at" | "due_date" | null = null;
-let activityActorColumn: string | null = null;
+const getClientColumns = unstable_cache(
+  async () => {
+    const lifecycleColumn = (await tableHasColumn("clients", "lifecycle_stage")) ? "lifecycle_stage" : "lifecycle";
+    const ownerColumn = (await tableHasColumn("clients", "owner")) ? "owner" : undefined;
+    const archivedColumn = (await tableHasColumn("clients", "archived_at")) ? "archived_at" : undefined;
+    const emailColumn = (await tableHasColumn("clients", "email")) ? "email" : undefined;
+    const phoneColumn = (await tableHasColumn("clients", "phone")) ? "phone" : undefined;
+    return { lifecycleColumn, ownerColumn, archivedColumn, emailColumn, phoneColumn };
+  },
+  ["client-columns"],
+  { revalidate: 3600 }
+);
 
-async function getClientColumns() {
-  if (clientColumns) return clientColumns;
-  const lifecycleColumn = (await tableHasColumn("clients", "lifecycle_stage")) ? "lifecycle_stage" : "lifecycle";
-  const ownerColumn = (await tableHasColumn("clients", "owner")) ? "owner" : undefined;
-  const archivedColumn = (await tableHasColumn("clients", "archived_at")) ? "archived_at" : undefined;
-  const emailColumn = (await tableHasColumn("clients", "email")) ? "email" : undefined;
-  const phoneColumn = (await tableHasColumn("clients", "phone")) ? "phone" : undefined;
-  clientColumns = { lifecycleColumn, ownerColumn, archivedColumn, emailColumn, phoneColumn };
-  return clientColumns;
-}
+const getStageShape = unstable_cache(
+  async (): Promise<StageShape> => {
+    const hasStageTable = await tableExists("pipeline_stages");
+    const hasStageId = await tableHasColumn("engagements", "stage_id");
+    if (hasStageTable && hasStageId) {
+      const { rows } = await query<{ id: string; label: string; color: StageColor; sort_order: number }>(
+        `
+          SELECT id, label, color, sort_order
+          FROM pipeline_stages
+          ORDER BY sort_order ASC, created_at ASC
+        `,
+      );
 
-async function getStageShape(): Promise<StageShape> {
-  if (stageShapeCache) {
-    return {
-      ...stageShapeCache,
-      stages: stageShapeCache.stages.map((stage) => ({ ...stage, count: 0 })),
-    };
-  }
+      const stages = rows.map((row, index) => ({
+        id: row.id,
+        label: row.label,
+        color: row.color ?? DEFAULT_STAGE_META[index % DEFAULT_STAGE_META.length].color,
+        count: 0,
+      }));
 
-  const hasStageTable = await tableExists("pipeline_stages");
-  const hasStageId = await tableHasColumn("engagements", "stage_id");
-  if (hasStageTable && hasStageId) {
-    const { rows } = await query<{ id: string; label: string; color: StageColor; sort_order: number }>(
-      `
-        SELECT id, label, color, sort_order
-        FROM pipeline_stages
-        ORDER BY sort_order ASC, created_at ASC
-      `,
-    );
+      const lookup = Object.fromEntries(stages.map((stage) => [stage.id, stage]));
+      return {
+        column: "stage_id",
+        usesStageTable: true,
+        lookup,
+        stages: stages.map((stage) => ({ ...stage })),
+      };
+    }
 
-    const stages = rows.map((row, index) => ({
-      id: row.id,
-      label: row.label,
-      color: row.color ?? DEFAULT_STAGE_META[index % DEFAULT_STAGE_META.length].color,
+    const fallbackStages = DEFAULT_STAGE_META.map((stage) => ({
+      id: stage.id,
+      label: stage.label,
+      color: stage.color,
       count: 0,
     }));
-
-    const lookup = Object.fromEntries(stages.map((stage) => [stage.id, stage]));
-    stageShapeCache = { column: "stage_id", stages, lookup, usesStageTable: true };
+    const lookup = Object.fromEntries(fallbackStages.map((stage) => [stage.id, stage]));
     return {
-      column: "stage_id",
-      usesStageTable: true,
+      column: "pipeline_stage",
+      usesStageTable: false,
       lookup,
-      stages: stages.map((stage) => ({ ...stage })),
+      stages: fallbackStages.map((stage) => ({ ...stage })),
     };
-  }
+  },
+  ["stage-shape"],
+  { revalidate: 3600 }
+);
 
-  const fallbackStages = DEFAULT_STAGE_META.map((stage) => ({
-    id: stage.id,
-    label: stage.label,
-    color: stage.color,
-    count: 0,
-  }));
-  const lookup = Object.fromEntries(fallbackStages.map((stage) => [stage.id, stage]));
-  stageShapeCache = { column: "pipeline_stage", stages: fallbackStages, lookup, usesStageTable: false };
-  return {
-    column: "pipeline_stage",
-    usesStageTable: false,
-    lookup,
-    stages: fallbackStages.map((stage) => ({ ...stage })),
-  };
-}
+const getTaskDueColumn = unstable_cache(
+  async () => {
+    return (await tableHasColumn("tasks", "due_at")) ? "due_at" : (await tableHasColumn("tasks", "due_date")) ? "due_date" : null;
+  },
+  ["task-due-column"],
+  { revalidate: 3600 }
+);
 
-async function getTaskDueColumn() {
-  if (taskDueColumn) return taskDueColumn;
-  taskDueColumn = (await tableHasColumn("tasks", "due_at")) ? "due_at" : (await tableHasColumn("tasks", "due_date")) ? "due_date" : null;
-  return taskDueColumn;
-}
-
-async function getActivityActorColumn() {
-  if (activityActorColumn !== null) return activityActorColumn;
-  activityActorColumn = (await tableHasColumn("activities", "actor")) ? "actor" : null;
-  return activityActorColumn;
-}
+const getActivityActorColumn = unstable_cache(
+  async () => {
+    return (await tableHasColumn("activities", "actor")) ? "actor" : null;
+  },
+  ["activity-actor-column"],
+  { revalidate: 3600 }
+);
 
 function normalizeLifecycle(value?: string | null): ClientLifecycle {
   if (!value) return "prospect";
@@ -197,8 +193,7 @@ export interface PipelineBoardData {
 }
 
 export async function fetchPipelineBoardData(): Promise<PipelineBoardData> {
-  const stageShape = await getStageShape();
-  const clientCols = await getClientColumns();
+  const [stageShape, clientCols] = await Promise.all([getStageShape(), getClientColumns()]);
   const ownerExpr = clientCols.ownerColumn ? `c.${clientCols.ownerColumn}` : `'${FALLBACK_OWNER}'::text`;
   const lifecycleExpr = `c.${clientCols.lifecycleColumn}`;
   const archivedFilter = clientCols.archivedColumn ? `c.${clientCols.archivedColumn} IS NULL` : "TRUE";
@@ -301,8 +296,7 @@ export async function fetchPipelineBoardData(): Promise<PipelineBoardData> {
 }
 
 export async function fetchClients(limit = 25): Promise<ClientSummary[]> {
-  const cols = await getClientColumns();
-  const stageShape = await getStageShape();
+  const [cols, stageShape] = await Promise.all([getClientColumns(), getStageShape()]);
   const stageRefColumn = stageShape.column === "stage_id" ? "stage_id" : "pipeline_stage";
   const ownerExpr = cols.ownerColumn ? `c.${cols.ownerColumn}` : `'${FALLBACK_OWNER}'::text`;
   const lifecycleExpr = `c.${cols.lifecycleColumn}`;
@@ -382,7 +376,11 @@ export interface ClientDetailData {
 }
 
 export async function fetchClientDetail(clientId: string): Promise<ClientDetailData | null> {
-  const cols = await getClientColumns();
+  const [cols, stageShape, actorColumn] = await Promise.all([
+    getClientColumns(),
+    getStageShape(),
+    getActivityActorColumn(),
+  ]);
   const ownerExpr = cols.ownerColumn ? `c.${cols.ownerColumn}` : `'${FALLBACK_OWNER}'::text`;
   const lifecycleExpr = `c.${cols.lifecycleColumn}`;
   const emailExpr = cols.emailColumn ? `c.${cols.emailColumn}` : "NULL";
@@ -409,13 +407,10 @@ export async function fetchClientDetail(clientId: string): Promise<ClientDetailD
   const client = rows[0];
   if (!client) return null;
 
-  const stageShape = await getStageShape();
-
   const { rows: engagementRows } = await query<{
     id: string;
     title: string;
-    pipeline_stage: string | null;
-    stage_id?: string | null;
+    stage_ref: string | null;
     status: string | null;
     updated_at: string;
     value: number | null;
@@ -445,7 +440,6 @@ export async function fetchClientDetail(clientId: string): Promise<ClientDetailD
     .filter((row) => !row.status || row.status === "open")
     .reduce((sum, row) => sum + (row.value ?? 0), 0);
 
-  const actorColumn = await getActivityActorColumn();
   const { rows: activityRows } = await query<{
     id: string;
     type: string | null;
@@ -510,7 +504,11 @@ export interface EngagementDetailData {
 }
 
 export async function fetchEngagementDetail(engagementId: string): Promise<EngagementDetailData | null> {
-  const cols = await getClientColumns();
+  const [cols, stageShape, dueColumn] = await Promise.all([
+    getClientColumns(),
+    getStageShape(),
+    getTaskDueColumn(),
+  ]);
   const ownerExpr = cols.ownerColumn ? `c.${cols.ownerColumn}` : `'${FALLBACK_OWNER}'::text`;
   const { rows } = await query<{
     id: string;
@@ -544,14 +542,12 @@ export async function fetchEngagementDetail(engagementId: string): Promise<Engag
   const engagement = rows[0];
   if (!engagement) return null;
 
-  const stageShape = await getStageShape();
   const stageRef = stageShape.column === "stage_id" ? engagement.stage_id : engagement.pipeline_stage;
   const stage =
     stageRef && stageShape.lookup[stageRef]
       ? stageShape.lookup[stageRef]
       : stageShape.lookup[STAGE_CATEGORY_MAP[stageRef ?? ""] ?? ""];
 
-  const dueColumn = await getTaskDueColumn();
   const { rows: taskRows } = await query<{
     id: string;
     title: string;
@@ -600,8 +596,7 @@ export async function fetchEngagementDetail(engagementId: string): Promise<Engag
 }
 
 export async function fetchTasks(limit = 25): Promise<TaskSummary[]> {
-  const dueColumn = await getTaskDueColumn();
-  const cols = await getClientColumns();
+  const [dueColumn, cols] = await Promise.all([getTaskDueColumn(), getClientColumns()]);
   const ownerField = cols.ownerColumn ? `c.${cols.ownerColumn}` : "c.name";
   const { rows } = await query<{
     id: string;
@@ -641,8 +636,10 @@ export async function fetchTasks(limit = 25): Promise<TaskSummary[]> {
 }
 
 export async function fetchDocuments(limit = 20): Promise<DocumentSummary[]> {
-  const hasStatus = await tableHasColumn("documents", "status");
-  const cols = await getClientColumns();
+  const hasStatusPromise = tableHasColumn("documents", "status");
+  const colsPromise = getClientColumns();
+  const [hasStatus, cols] = await Promise.all([hasStatusPromise, colsPromise]);
+  
   const ownerField = cols.ownerColumn ? `c.${cols.ownerColumn}` : "c.name";
   const { rows } = await query<{
     id: string;
@@ -751,8 +748,10 @@ export async function fetchExternalAccounts(limit = 20): Promise<ExternalAccount
 }
 
 export async function fetchActivityFeed(limit = 15): Promise<ActivityItem[]> {
-  const actorColumn = await getActivityActorColumn();
-  const hasTitle = await tableHasColumn("activities", "title");
+  const [actorColumn, hasTitle] = await Promise.all([
+    getActivityActorColumn(),
+    tableHasColumn("activities", "title")
+  ]);
   const { rows } = await query<{
     id: string;
     type: string | null;
@@ -796,27 +795,3 @@ export interface ClientEmail {
   date?: string;
 }
 
-export async function fetchClientEmails(clientId: string): Promise<ClientEmail[]> {
-  const client = await fetchClientDetail(clientId);
-  if (!client || !client.client.email) return [];
-  
-  // Hardcoded system account for now
-  const systemEmail = 'thomasbutcher@qortana.com';
-  
-  try {
-    const emails = await integrationService.fetchEmails(
-      systemEmail,
-      `from:${client.client.email} OR to:${client.client.email}`
-    );
-    return emails.map(e => ({
-        id: e.id!,
-        snippet: e.snippet ?? undefined,
-        subject: e.subject,
-        from: e.from,
-        date: e.date
-    }));
-  } catch (e) {
-    console.error('Failed to fetch emails', e);
-    return [];
-  }
-}

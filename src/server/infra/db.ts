@@ -176,7 +176,7 @@ export class TransactionContext {
       `;
       const result = await this.client.query(query, [id]);
       if (result.rows.length === 0) {
-        return this.find(table, id) as Promise<TableShape[K]>;
+        return this.find(table, id as string) as Promise<TableShape[K]>;
       }
       return mapRowFromDb(table, result.rows[0]);
     }

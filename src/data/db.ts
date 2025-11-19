@@ -1,4 +1,5 @@
-import { Pool, type QueryResult } from "pg";
+import { Pool, type QueryResult, type QueryResultRow } from "pg";
+import { unstable_cache } from "next/cache";
 
 declare global {
   var __crm_pg_pool__: Pool | undefined;
@@ -25,7 +26,7 @@ function getPool() {
   return globalThis.__crm_pg_pool__;
 }
 
-export async function query<T = Record<string, unknown>>(
+export async function query<T extends QueryResultRow = any>(
   text: string,
   params: unknown[] = [],
 ): Promise<QueryResult<T>> {
@@ -33,46 +34,39 @@ export async function query<T = Record<string, unknown>>(
   return pool.query<T>(text, params);
 }
 
-const columnCache = new Map<string, boolean>();
+export const tableHasColumn = unstable_cache(
+  async (table: string, column: string) => {
+    const { rows } = await query<{ exists: boolean }>(
+      `
+        SELECT EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_name = $1
+            AND column_name = $2
+        ) AS exists
+      `,
+      [table, column],
+    );
+    return Boolean(rows[0]?.exists);
+  },
+  ["table-has-column"],
+  { revalidate: 86400 }
+);
 
-export async function tableHasColumn(table: string, column: string) {
-  const key = `${table}.${column}`;
-  if (columnCache.has(key)) {
-    return columnCache.get(key)!;
-  }
-  const { rows } = await query<{ exists: boolean }>(
-    `
-      SELECT EXISTS (
-        SELECT 1
-        FROM information_schema.columns
-        WHERE table_name = $1
-          AND column_name = $2
-      ) AS exists
-    `,
-    [table, column],
-  );
-  const exists = Boolean(rows[0]?.exists);
-  columnCache.set(key, exists);
-  return exists;
-}
-
-const tableCache = new Map<string, boolean>();
-
-export async function tableExists(table: string) {
-  if (tableCache.has(table)) {
-    return tableCache.get(table)!;
-  }
-  const { rows } = await query<{ exists: boolean }>(
-    `
-      SELECT EXISTS (
-        SELECT 1
-        FROM information_schema.tables
-        WHERE table_name = $1
-      ) AS exists
-    `,
-    [table],
-  );
-  const exists = Boolean(rows[0]?.exists);
-  tableCache.set(table, exists);
-  return exists;
-}
+export const tableExists = unstable_cache(
+  async (table: string) => {
+    const { rows } = await query<{ exists: boolean }>(
+      `
+        SELECT EXISTS (
+          SELECT 1
+          FROM information_schema.tables
+          WHERE table_name = $1
+        ) AS exists
+      `,
+      [table],
+    );
+    return Boolean(rows[0]?.exists);
+  },
+  ["table-exists"],
+  { revalidate: 86400 }
+);

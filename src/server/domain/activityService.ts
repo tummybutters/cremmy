@@ -32,8 +32,8 @@ export const activityService = {
   }): Promise<Activity[]> {
     return db.withTransaction(async (tx) => {
       const sinceTs = filter.since ? Date.parse(filter.since) : undefined;
-      return tx
-        .list('activities')
+      const activities = await tx.list('activities');
+      return activities
         .filter((activity) => {
           if (filter.client_id && activity.client_id !== filter.client_id) return false;
           if (filter.engagement_id && activity.engagement_id !== filter.engagement_id) return false;

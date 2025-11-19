@@ -113,6 +113,7 @@ export interface ExternalAccount {
   id: string;
   provider: string;
   external_id: string;
+  account_identifier?: string;
   label?: string;
   metadata?: Record<string, unknown>;
   client_id?: string;

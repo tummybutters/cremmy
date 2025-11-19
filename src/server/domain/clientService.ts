@@ -22,16 +22,16 @@ type ClientUpsertInput = Partial<Client> & {
 export const clientService = {
   async list(filters: ListFilters) {
     return db.withTransaction(async (tx) => {
+      const allClients = await tx.list('clients');
+      
       const cursorIdx = filters.cursor
-        ? tx
-            .list('clients')
+        ? allClients
             .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
             .findIndex((c) => c.id === filters.cursor)
         : -1;
 
       const start = cursorIdx >= 0 ? cursorIdx + 1 : 0;
-      const items = tx
-        .list('clients')
+      const items = allClients
         .filter((client) => !client.archived_at)
         .filter((client) => (filters.lifecycle_stage ? client.lifecycle_stage === filters.lifecycle_stage : true))
         .filter((client) =>
@@ -73,7 +73,7 @@ export const clientService = {
         updated_at: now,
       };
 
-      const client = tx.insert('clients', record);
+      const client = await tx.insert('clients', record);
       await activityService.log(tx, {
         type: 'client_change',
         actor,
@@ -86,7 +86,7 @@ export const clientService = {
 
   async getById(id: string) {
     return db.withTransaction(async (tx) => {
-      const client = tx.find('clients', id);
+      const client = await tx.find('clients', id);
       if (!client || client.archived_at) throw notFound('Client not found');
       return client;
     });
@@ -94,9 +94,9 @@ export const clientService = {
 
   async update(id: string, patch: ClientUpsertInput, actor: string) {
     return db.withTransaction(async (tx) => {
-      const client = tx.find('clients', id);
+      const client = await tx.find('clients', id);
       if (!client || client.archived_at) throw notFound('Client not found');
-      const updated = tx.update('clients', id, {
+      const updated = await tx.update('clients', id, {
         ...patch,
         contact: {
           email: patch.contact?.email ?? patch.email ?? client.contact.email,
@@ -117,9 +117,9 @@ export const clientService = {
 
   async delete(id: string, actor: string) {
     return db.withTransaction(async (tx) => {
-      const client = tx.find('clients', id);
+      const client = await tx.find('clients', id);
       if (!client || client.archived_at) throw notFound('Client not found');
-      const updated = tx.update('clients', id, { archived_at: generateTimestamp() });
+      const updated = await tx.update('clients', id, { archived_at: generateTimestamp() });
       await activityService.log(tx, {
         type: 'client_change',
         actor,
@@ -132,10 +132,10 @@ export const clientService = {
 
   async setLifecycle(id: string, target: LifecycleStage, actor: string, reason?: string) {
     return db.withTransaction(async (tx) => {
-      const client = tx.find('clients', id);
+      const client = await tx.find('clients', id);
       if (!client || client.archived_at) throw notFound('Client not found');
       if (client.lifecycle_stage === target) return client;
-      const updated = tx.update('clients', id, { lifecycle_stage: target, updated_at: generateTimestamp() });
+      const updated = await tx.update('clients', id, { lifecycle_stage: target, updated_at: generateTimestamp() });
       await activityService.log(tx, {
         type: 'lifecycle_change',
         actor,
@@ -147,14 +147,13 @@ export const clientService = {
   },
 
   async syncLifecycleForClient(tx: TransactionContext, clientId: string, actor = 'system') {
-    const client = tx.find('clients', clientId);
+    const client = await tx.find('clients', clientId);
     if (!client || client.archived_at) return client;
-    const engagements = tx
-      .list('engagements')
-      .filter((engagement) => engagement.client_id === clientId);
-    const nextStage = determineLifecycle(client, engagements);
+    const engagements = await tx.list('engagements');
+    const filteredEngagements = engagements.filter((engagement) => engagement.client_id === clientId);
+    const nextStage = determineLifecycle(client, filteredEngagements);
     if (nextStage && nextStage !== client.lifecycle_stage) {
-      tx.update('clients', clientId, { lifecycle_stage: nextStage, updated_at: generateTimestamp() });
+      await tx.update('clients', clientId, { lifecycle_stage: nextStage, updated_at: generateTimestamp() });
       await activityService.log(tx, {
         type: 'lifecycle_change',
         actor,
@@ -162,7 +161,7 @@ export const clientService = {
         payload: { from: client.lifecycle_stage, to: nextStage, reason: 'auto-sync' },
       });
     }
-    return tx.find('clients', clientId);
+    return await tx.find('clients', clientId);
   },
 };
 

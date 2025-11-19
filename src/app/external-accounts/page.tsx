@@ -1,4 +1,4 @@
-import ExternalAccountsPage from "@/pages/ExternalAccountsPage";
+import ExternalAccountsPage from "@/views/ExternalAccountsPage";
 
 export const dynamic = "force-dynamic";
 

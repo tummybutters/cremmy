@@ -1,4 +1,4 @@
-import PipelineBoardPage from "@/pages/PipelineBoardPage";
+import PipelineBoardPage from "@/views/PipelineBoardPage";
 
 export const dynamic = "force-dynamic";
 

@@ -1,5 +1,6 @@
 import { Card, PageHeader, StageBadge, StatusTag } from "@/components";
-import { fetchClientDetail, fetchClientEmails } from "@/data/crm";
+import { fetchClientDetail } from "@/data/crm";
+// import { fetchClientEmails } from "@/server/actions/email";
 
 interface ClientDetailPageProps {
   clientId?: string;
@@ -7,7 +8,8 @@ interface ClientDetailPageProps {
 
 export default async function ClientDetailPage({ clientId }: ClientDetailPageProps) {
   const detail = clientId ? await fetchClientDetail(clientId) : null;
-  const emails = clientId ? await fetchClientEmails(clientId) : [];
+  const emails: any[] = []; // TODO: Re-enable when googleapis bundling is fixed
+  // const emails = clientId ? await fetchClientEmails(clientId) : [];
 
   return (
     <section className="space-y-6">

@@ -1,4 +1,4 @@
-import TasksViewPage from "@/pages/TasksViewPage";
+import TasksViewPage from "@/views/TasksViewPage";
 
 export const dynamic = "force-dynamic";
 

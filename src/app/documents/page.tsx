@@ -1,4 +1,4 @@
-import DocumentsListPage from "@/pages/DocumentsListPage";
+import DocumentsListPage from "@/views/DocumentsListPage";
 
 export const dynamic = "force-dynamic";
 

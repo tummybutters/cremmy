@@ -10,7 +10,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   block?: boolean;
 }
 
-const sizeStyles: Record<ButtonSize, CSSProperties> = {
+const sizeStyles: Record<ButtonSize, CSSProperties & Record<string, any>> = {
   sm: {
     "--btn-px": "1.35rem",
     "--btn-py": "0.55rem",

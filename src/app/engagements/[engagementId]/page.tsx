@@ -1,4 +1,4 @@
-import EngagementDetailPage from "@/pages/EngagementDetailPage";
+import EngagementDetailPage from "@/views/EngagementDetailPage";
 
 export const dynamic = "force-dynamic";
 

@@ -1,4 +1,4 @@
-import TemplatesListPage from "@/pages/TemplatesListPage";
+import TemplatesListPage from "@/views/TemplatesListPage";
 
 export const dynamic = "force-dynamic";
 

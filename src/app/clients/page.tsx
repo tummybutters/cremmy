@@ -1,4 +1,4 @@
-import ClientsListPage from "@/pages/ClientsListPage";
+import ClientsListPage from "@/views/ClientsListPage";
 
 export const dynamic = "force-dynamic";
 
