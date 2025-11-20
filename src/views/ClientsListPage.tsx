@@ -1,13 +1,14 @@
 import { ClientsHeader } from "./ClientsHeader";
 import { ClientCard } from "./ClientCard";
-import { fetchClients } from "@/data/crm";
+import { fetchClients, fetchPipelineStages } from "@/data/crm";
 
 export default async function ClientsListPage() {
   const clients = await fetchClients();
+  const stages = await fetchPipelineStages();
 
   return (
     <section className="space-y-6">
-      <ClientsHeader />
+      <ClientsHeader stages={stages} />
       <div className="flex flex-wrap gap-2 text-[0.6rem] uppercase tracking-[0.2em] text-slate-400">
         {["All", "Prospects", "Active", "At risk"].map((filter) => (
           <button key={filter} className="chip-premium bg-white/5 text-white/70 hover:text-white">

@@ -71,14 +71,6 @@ export function SidebarNav({ navItems }: SidebarNavProps) {
             </ul>
           </nav>
           <div className="nav-card-separator" />
-          <div className="nav-card-footer">
-            <button
-              onClick={() => (window.location.href = "/api/logout")}
-              className="w-full text-sm text-slate-400 hover:text-white transition-colors"
-            >
-              Sign Out
-            </button>
-          </div>
         </div>
       </aside>
       <button

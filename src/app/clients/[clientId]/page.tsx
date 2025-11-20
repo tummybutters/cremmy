@@ -1,6 +1,5 @@
 import ClientDetailPage from "@/views/ClientDetailPage";
-
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 interface ClientDetailRouteProps {
   params: { clientId: string };
@@ -11,4 +10,3 @@ export default function ClientDetailRoute({
 }: ClientDetailRouteProps) {
   return <ClientDetailPage clientId={params.clientId} />;
 }
-

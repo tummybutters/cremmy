@@ -84,7 +84,7 @@ const getClientColumns = unstable_cache(
   { revalidate: 3600 }
 );
 
-const getStageShape = unstable_cache(
+export const getStageShape = unstable_cache(
   async (): Promise<StageShape> => {
     const hasStageTable = await tableExists("pipeline_stages");
     const hasStageId = await tableHasColumn("engagements", "stage_id");
@@ -131,6 +131,11 @@ const getStageShape = unstable_cache(
   { revalidate: 3600 }
 );
 
+export async function fetchPipelineStages(): Promise<PipelineStage[]> {
+  const shape = await getStageShape();
+  return shape.stages.map((stage) => ({ ...stage }));
+}
+
 const getTaskDueColumn = unstable_cache(
   async () => {
     return (await tableHasColumn("tasks", "due_at")) ? "due_at" : (await tableHasColumn("tasks", "due_date")) ? "due_date" : null;
@@ -138,6 +143,30 @@ const getTaskDueColumn = unstable_cache(
   ["task-due-column"],
   { revalidate: 3600 }
 );
+
+function normalizeStageKey(stageRef: string | null | undefined, stageShape: StageShape) {
+  if (!stageRef) return null;
+  const stageMeta = stageShape.lookup[stageRef];
+  if (stageMeta) {
+    const labelSlug = stageMeta.label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+    return STAGE_CATEGORY_MAP[labelSlug] ?? labelSlug;
+  }
+  const normalized = stageRef.toLowerCase();
+  return STAGE_CATEGORY_MAP[normalized] ?? normalized;
+}
+
+function deriveLifecycleFromStage(
+  stageRef: string | null | undefined,
+  lifecycle: string | null | undefined,
+  stageShape: StageShape,
+): ClientLifecycle {
+  const base = normalizeLifecycle(lifecycle);
+  const stageKey = normalizeStageKey(stageRef, stageShape);
+  if (!stageKey) return base;
+  if (stageKey === "closed_won") return "active";
+  if (stageKey === "closed_lost") return "inactive";
+  return base;
+}
 
 const getActivityActorColumn = unstable_cache(
   async () => {
@@ -279,7 +308,7 @@ export async function fetchPipelineBoardData(): Promise<PipelineBoardData> {
       id: row.client_id,
       name: row.client_name,
       owner: formatOwner(row.owner),
-      status: normalizeLifecycle(row.lifecycle),
+      status: deriveLifecycleFromStage(stageId, row.lifecycle, stageShape),
       stageId,
       lastActivity: formatRelativeTime(row.last_activity),
       value: row.value ? formatCurrency(row.value) : undefined,
@@ -296,7 +325,11 @@ export async function fetchPipelineBoardData(): Promise<PipelineBoardData> {
 }
 
 export async function fetchClients(limit = 25): Promise<ClientSummary[]> {
-  const [cols, stageShape] = await Promise.all([getClientColumns(), getStageShape()]);
+  const [cols, stageShape, hasCustomValue] = await Promise.all([
+    getClientColumns(),
+    getStageShape(),
+    tableHasColumn("clients", "custom_value"),
+  ]);
   const stageRefColumn = stageShape.column === "stage_id" ? "stage_id" : "pipeline_stage";
   const ownerExpr = cols.ownerColumn ? `c.${cols.ownerColumn}` : `'${FALLBACK_OWNER}'::text`;
   const lifecycleExpr = `c.${cols.lifecycleColumn}`;
@@ -320,6 +353,8 @@ export async function fetchClients(limit = 25): Promise<ClientSummary[]> {
       c.updated_at,
       la.last_activity_at,
       totals.total_value,
+      ${hasCustomValue ? "c.custom_value" : "NULL"} AS custom_value,
+      c.notes,
       es.stage_ref AS stage_id
     FROM clients c
     LEFT JOIN LATERAL (
@@ -348,24 +383,27 @@ export async function fetchClients(limit = 25): Promise<ClientSummary[]> {
     updated_at: string;
     last_activity_at: string | null;
     total_value: number | null;
+    custom_value: number | null;
+    notes: string | null;
     stage_id: string | null;
   }>(queryText, [limit]);
 
   return rows.map((row) => {
-    const stageId = row.stage_id
-      ? stageShape.lookup[row.stage_id]
-        ? row.stage_id
-        : STAGE_CATEGORY_MAP[row.stage_id] ?? stageShape.stages[0]?.id
-      : stageShape.stages[0]?.id;
+    const rawStageRef = row.stage_id ?? undefined;
+    const stageId = rawStageRef && stageShape.lookup[rawStageRef] ? rawStageRef : stageShape.stages[0]?.id;
+    const lifecycle = deriveLifecycleFromStage(rawStageRef ?? stageId, row.lifecycle, stageShape);
+    const valueNumber = row.custom_value ?? row.total_value ?? null;
     return {
       id: row.id,
       name: row.name,
       company: row.company ?? undefined,
       owner: formatOwner(row.owner),
-      status: normalizeLifecycle(row.lifecycle),
+      status: lifecycle,
       stageId: stageId ?? stageShape.stages[0]?.id ?? "lead",
       lastActivity: formatRelativeTime(row.last_activity_at),
-      value: row.total_value ? formatCurrency(row.total_value) : undefined,
+      description: row.notes ?? undefined,
+      total_value: valueNumber ?? undefined,
+      value: valueNumber ? formatCurrency(valueNumber) : undefined,
     };
   });
 }
@@ -434,10 +472,12 @@ export async function fetchClientDetail(clientId: string): Promise<ClientDetailD
     [clientId],
   );
 
-  const activeStage = engagementRows[0]?.stage_ref
-    ? stageShape.lookup[engagementRows[0].stage_ref] ??
-    stageShape.lookup[STAGE_CATEGORY_MAP[engagementRows[0].stage_ref] ?? ""]
+  const activeStageRef = engagementRows[0]?.stage_ref ?? null;
+  const activeStage = activeStageRef
+    ? stageShape.lookup[activeStageRef] ??
+    stageShape.lookup[STAGE_CATEGORY_MAP[activeStageRef] ?? ""]
     : undefined;
+  const lifecycle = deriveLifecycleFromStage(activeStageRef ?? activeStage?.id, client.lifecycle, stageShape);
 
   const totalValue = engagementRows
     .filter((row) => !row.status || row.status === "open")
@@ -479,7 +519,7 @@ export async function fetchClientDetail(clientId: string): Promise<ClientDetailD
     client: {
       ...client,
       owner: formatOwner(client.owner),
-      lifecycle: normalizeLifecycle(client.lifecycle),
+      lifecycle,
     },
     stage: activeStage,
     valueLabel: totalValue ? formatCurrency(totalValue) : undefined,
@@ -713,6 +753,7 @@ export async function fetchExternalAccounts(limit = 20): Promise<ExternalAccount
   const hasAccountName = await tableHasColumn("external_accounts", "account_name");
   const hasAccountIdentifier = await tableHasColumn("external_accounts", "account_identifier");
   const hasStatus = await tableHasColumn("external_accounts", "status");
+  const hasLastSynced = await tableHasColumn("external_accounts", "last_synced_at");
 
   const { rows } = await query<{
     id: string;
@@ -729,7 +770,7 @@ export async function fetchExternalAccounts(limit = 20): Promise<ExternalAccount
         ${hasAccountName ? "ea.account_name" : "ea.label"} AS account_name,
         ${hasAccountIdentifier ? "ea.account_identifier" : "ea.external_id"} AS account_identifier,
         ${hasStatus ? "ea.status" : "CASE WHEN ea.is_active = true THEN 'connected' ELSE 'disconnected' END"} AS status,
-        ea.last_synced_at
+        ${hasLastSynced ? "ea.last_synced_at" : "NULL"} AS last_synced_at
       FROM external_accounts ea
       ORDER BY ea.updated_at DESC
       LIMIT $1
@@ -756,9 +797,10 @@ export async function fetchExternalAccounts(limit = 20): Promise<ExternalAccount
 }
 
 export async function fetchActivityFeed(limit = 15): Promise<ActivityItem[]> {
-  const [actorColumn, hasTitle] = await Promise.all([
+  const [actorColumn, hasTitle, hasDescription] = await Promise.all([
     getActivityActorColumn(),
-    tableHasColumn("activities", "title")
+    tableHasColumn("activities", "title"),
+    tableHasColumn("activities", "description"),
   ]);
   const { rows } = await query<{
     id: string;
@@ -774,7 +816,7 @@ export async function fetchActivityFeed(limit = 15): Promise<ActivityItem[]> {
         a.id,
         a.type,
         ${hasTitle ? "a.title" : "NULL"} AS title,
-        a.description,
+        ${hasDescription ? "a.description" : "NULL"} AS description,
         a.created_at,
         ${actorColumn ? `a.${actorColumn}` : "NULL"} AS actor,
         c.name AS client_name

@@ -50,6 +50,7 @@ export function Button({
 
   return (
     <button
+      type={props.type || "button"}
       className={classNames(
         "inline-flex items-center justify-center font-semibold uppercase tracking-wide focus-visible:outline-none motion-premium",
         variantClasses[variant],

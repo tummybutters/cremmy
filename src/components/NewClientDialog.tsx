@@ -1,16 +1,19 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient, type CreateClientState } from "@/server/actions/clients";
 import { Button } from "./Button";
 import { Dialog } from "./Dialog";
 import { FormField } from "./FormField";
 import { Input } from "./Input";
 import { Select } from "./Select";
+import type { PipelineStage } from "@/types/ui";
 
 interface NewClientDialogProps {
     isOpen: boolean;
     onClose: () => void;
+    stages: PipelineStage[];
 }
 
 const initialState: CreateClientState = {
@@ -18,16 +21,29 @@ const initialState: CreateClientState = {
     success: false,
 };
 
-export function NewClientDialog({ isOpen, onClose }: NewClientDialogProps) {
+const FALLBACK_STAGES: PipelineStage[] = [
+    { id: "lead", label: "Lead", color: "slate", count: 0 },
+    { id: "qualified", label: "Qualified", color: "blue", count: 0 },
+    { id: "proposal", label: "Proposal", color: "amber", count: 0 },
+    { id: "negotiation", label: "Negotiation", color: "purple", count: 0 },
+    { id: "closed_won", label: "Closed Won", color: "emerald", count: 0 },
+    { id: "closed_lost", label: "Closed Lost", color: "rose", count: 0 },
+];
+
+export function NewClientDialog({ isOpen, onClose, stages }: NewClientDialogProps) {
     const [state, formAction, isPending] = useActionState(createClient, initialState);
     const [key, setKey] = useState(0); // Force reset form on open/close
+    const router = useRouter();
+    const stageOptions = useMemo(() => (stages?.length ? stages : FALLBACK_STAGES), [stages]);
+    const defaultStageId = stageOptions[0]?.id ?? "lead";
 
     useEffect(() => {
         if (state.success) {
             onClose();
+            router.refresh();
             setKey((k) => k + 1); // Reset form
         }
-    }, [state.success, onClose]);
+    }, [state.success, onClose, router]);
 
     useEffect(() => {
         if (!isOpen) {
@@ -90,6 +106,19 @@ export function NewClientDialog({ isOpen, onClose }: NewClientDialogProps) {
                         <Input name="phone" type="tel" placeholder="+1 (555) 000-0000" />
                     </FormField>
                 </div>
+
+                <FormField label="Pipeline Stage" description="Pick where this client enters the deal flow">
+                    <Select name="pipeline_stage" defaultValue={defaultStageId}>
+                        {stageOptions.map((stage) => (
+                            <option key={stage.id} value={stage.id}>
+                                {stage.label}
+                            </option>
+                        ))}
+                    </Select>
+                    {state.error?.pipeline_stage && (
+                        <p className="text-xs text-rose-400 mt-1">{state.error.pipeline_stage[0]}</p>
+                    )}
+                </FormField>
 
                 <FormField label="Lifecycle Stage">
                     <Select name="lifecycle" defaultValue="prospect">

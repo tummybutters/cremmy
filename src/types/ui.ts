@@ -24,13 +24,14 @@ export interface ClientSummary {
   stageId: string;
   lastActivity: string;
   value?: string;
-  // New fields
+  // Additional optional fields
   company?: string;
   description?: string;
   payment_type?: 'monthly' | 'one_time';
   recurring_amount?: number;
   total_value?: number;
   last_payment_date?: string;
+  custom_value?: number;
 }
 
 export interface EngagementSummary {
@@ -80,5 +81,4 @@ export interface ExternalAccountSummary {
   status: "connected" | "error" | "disconnected";
   lastSync: string;
 }
-
 

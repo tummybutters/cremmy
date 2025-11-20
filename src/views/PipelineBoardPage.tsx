@@ -1,19 +1,13 @@
-import { Card, PageHeader, StageBadge, StatusTag } from "@/components";
+import { Card, StageBadge, StatusTag } from "@/components";
 import { fetchPipelineBoardData } from "@/data/crm";
+import { PipelineHeader } from "./PipelineHeader";
 
 export default async function PipelineBoardPage() {
   const { stages, dealsByStage } = await fetchPipelineBoardData();
 
   return (
     <section className="space-y-6">
-      <PageHeader
-        title="Pipeline Board"
-        description="Track single-user deals and move clients through defined stages."
-        actions={[
-          { label: "Add Client", variant: "primary" },
-          { label: "New Note", variant: "ghost" },
-        ]}
-      />
+      <PipelineHeader stages={stages} />
       <div className="flex flex-wrap gap-2 text-[0.6rem] uppercase tracking-[0.2em] text-slate-400">
           {["Today", "This week", "High Value", "At risk"].map((filter) => (
             <button key={filter} className="chip-premium bg-white/5 text-white/70 hover:text-white">
